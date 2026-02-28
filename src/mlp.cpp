@@ -2,7 +2,7 @@
 
 int main()
 {
-    Mlp mlp(100'000, 0.001, 2, 2, 1);
+    Mlp mlp(100'000, 0.001, 4, 2, 1);
     mlp.forward();
 
     // backward stuff

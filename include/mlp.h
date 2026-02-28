@@ -27,10 +27,11 @@ class Mlp
             std::size_t hidden_size, std::size_t output_size) :
             epochs(epochs), lr(lr), input_size(input_size),
             hidden_size(hidden_size), output_size(output_size),
-            X(4, 2, {0, 0, 0, 1, 1, 0, 1, 1}), Y(4, 1, {0, 1, 1, 0}),
-            W1(input_size, 2), W2(output_size, hidden_size), b1(hidden_size, 1),
+            X(input_size, hidden_size, {0, 0, 0, 1, 1, 0, 1, 1}),
+            Y(input_size, output_size, {0, 1, 1, 0}), W1(2, hidden_size),
+            W2(output_size, hidden_size), b1(hidden_size, 1),
             b2(output_size, 1), z1(hidden_size, 1), z2(1, 1), a1(hidden_size, 1),
-            a2(1, 1)
+            a2(output_size, 1)
         {
             Random<double> r(-1, 1);
             r.fillMatrixWithRand(W1);
@@ -44,7 +45,7 @@ class Mlp
         {
             for(size_t e = 0; e < 1; e++)
             {
-
+                z1 = (X * W1);
             }
         }
 };
