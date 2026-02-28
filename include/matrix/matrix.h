@@ -229,7 +229,7 @@ Matrix<T> operator-(const Matrix<T>& a, const Matrix<T>& b)
  * @return The Matrix after operation
  */
 template<typename T, typename U>
-Matrix<T> operator*(const Matrix<T>& a, const Matrix<U>& b)
+Matrix<T> operator*(const Matrix<U>& a, const Matrix<T>& b)
 {
     auto [a_rows, a_cols] = a.shape();
     auto [b_rows, b_cols] = b.shape();
