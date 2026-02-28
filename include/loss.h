@@ -2,7 +2,7 @@
 
 #include "matrix/matrix.h"
 
-double MSE_derivative(const Matrix<int>& Y, const Matrix<int>& y)
+double MSE_derivative(const Matrix<int>& Y, const Matrix<double>& y)
 {
     double result = 0.0;
     auto [rows, cols] = y.shape();
