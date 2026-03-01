@@ -3,7 +3,7 @@
 int main()
 {
     Mlp mlp(100'000, 0.001, 4, 2, 1);
-    mlp.forward();
+    mlp.train();
 
     // backward stuff
     // double d_e = MSE_derivative(Y, y); // E(MSE) derivative with respect to ŷ

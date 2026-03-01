@@ -3,26 +3,26 @@
 #include "matrix/matrix.h"
 
 // TODO: add template here, too
-Matrix<double> ReLU(const Matrix<double>& z)
+Matrix<double> ReLU(const Matrix<double>& a)
 {
-    auto [rows, cols] = z.shape();
+    auto [rows, cols] = a.shape();
     Matrix<double> r(rows, cols);
 
     for(size_t i = 0; i < rows; i++)
     {
         for(size_t j = 0; j < cols; j++)
         {
-            r(i, j) = std::max(0.0, z(i, j));
+            r(i, j) = std::max(0.0, a(i, j));
         }
     }
 
     return r;
 }
 
-Matrix<int> ReLU_derivative(const Matrix<double>& a)
+Matrix<double> ReLU_derivative(const Matrix<double>& a)
 {
     auto [rows, cols] = a.shape();
-    Matrix<int> r(rows, cols);
+    Matrix<double> r(rows, cols);
     for(size_t i = 0; i < rows; i++)
     {
         for(size_t j = 0; j < cols; j++)
