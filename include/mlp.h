@@ -115,9 +115,6 @@ class Mlp
             Random<double> r(-1, 1);
             r.fillMatrixWithRand(W1);
             r.fillMatrixWithRand(W2);
-            B1(0, 0) = 0;
-            B1(0, 1) = 0;
-            B2(0, 0) = 0;
         }
 
         void train()
