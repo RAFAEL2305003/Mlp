@@ -68,7 +68,7 @@ class Mlp
             Matrix delta = d_mse_y * d_y_z2;
             Matrix d_z2_w2 = A; // this is necessary because the tranpose method return the matrix itself changed not a new
 
-            Matrix d_mse_w2 = hadamard(d_z2_w2.transpose(), delta);
+            Matrix d_mse_w2 = hadamard(A.transpose(), delta);
  
             // dMSE/dB2 = dMSE/dŶ * dŶ/dZ2 * dZ2/dB2
             auto [rows, cols] = Z2.shape();
@@ -80,11 +80,11 @@ class Mlp
             // dMSE/dW1 = dMSE/dŶ * dŶ/dZ2 * dZ2/dA * dA/dZ1 * dZ1/dW1
             Matrix d_z2_a = W2;
             Matrix d_a_z1 = sigmoid_derivative(A);
-            Matrix delta_h = hadamard(delta, d_z2_a.transpose());
+            Matrix delta_h = hadamard(delta, W2.transpose());
             delta_h = delta_h * d_a_z1;
 
             Matrix d_z1_w1 = X; // this is necessary because the tranpose method return the matrix itself changed not a new
-            Matrix d_mse_w1 = hadamard(d_z1_w1.transpose(), delta_h);
+            Matrix d_mse_w1 = hadamard(X.transpose(), delta_h);
 
             // dMSE/dB1 = dMSE/dŶ * dŶ/dZ2 * dZ2/dA * dA/dZ1 * dZ1/dB1
             auto [rows_, cols_] = Z1.shape();

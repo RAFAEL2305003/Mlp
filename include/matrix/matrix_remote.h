@@ -74,12 +74,11 @@ class Matrix
          * @param j Column index
          * @return A reference to item itself
          */
-        T& operator()(std::size_t i, std::size_t j)
+        double& operator()(std::size_t i, std::size_t j)
         {
             assert(i < rows && j < cols);
             return elements[i * cols + j];
         }
-
 
         /**
          * @brief Access and returns the item at i and j
@@ -89,12 +88,11 @@ class Matrix
          * @param j Column index
          * @return A const reference to item itself
          */
-        const T& operator()(std::size_t i, std::size_t j) const
+        const double& operator()(std::size_t i, std::size_t j) const
         {
             assert(i < rows && j < cols);
             return elements[i * cols + j];
         }
-
 
         /**
          * @brief Transposes a Matrix
@@ -114,7 +112,7 @@ class Matrix
                 }
             }
 
-            Matrix r(cols, rows, new_elements);
+            Matrix r(rows, cols, new_elements);
             return r;
         }
 
@@ -140,26 +138,62 @@ class Matrix
             }
             std::cout << "\n";
         }
-
- 
-        void print() const
-        {
-            for(std::size_t i = 0; i < rows; i++)
-            {
-                std::cout << "[";
-                for(std::size_t j = 0; j < cols; j++)
-                {
-                    std::cout << elements[i * cols + j];
-                    if(j != cols - 1)
-                    {
-                        std::cout << " ";
-                    }
-                }
-                std::cout << "]\n";
-            }
-            std::cout << "\n";
-        }
 };
+
+/**
+<<<<<<< HEAD
+=======
+ * Creates a identity Matrix
+ *
+ * @param n The order of the Matrix
+ * @return the identity Matrix with order n
+ */
+template<typename T>
+Matrix<T> identity(std::size_t n)
+{
+    Matrix<T> I(n, n);
+    for(std::size_t i = 0; i < n; i++)
+    {
+        for(std::size_t j = 0; j < n; j++)
+        {
+            if(i == j)
+            {
+                I(i, j) = 1;
+            }
+        }
+    }
+
+    return I;
+}
+
+/**
+>>>>>>> dev
+ * Compare two Matrices
+ *
+ * @param a A Matrix to compare with
+ * @param b Another Matrix
+ * @return true if both matrices are equal, false otherwise
+ */
+template<typename T>
+bool operator==(const Matrix<T>& a, const Matrix<T>& b)
+{
+    auto [a_rows, a_cols] = a.shape();
+    auto [b_rows, b_cols] = b.shape();
+    assert(a_rows == b_rows && a_cols == b_cols);
+
+    for(std::size_t i = 0; i < a_rows; i++)
+    {
+        for(std::size_t j = 0; j < a_cols; j++)
+        {
+            if(a(i, j) != b(i, j))
+            {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
 
 /**
  * Multiply a Matrix for a scalar
@@ -169,31 +203,62 @@ class Matrix
  * @return The Matrix after the operation
  */
 template<typename T>
-Matrix<T> operator*=(Matrix<T>& a, double num)
+Matrix<T> operator*=(double num, Matrix<T>& a)
 {
     auto [rows, cols] = a.shape();
-    for(std::size_t i = 0; i < rows * cols; i++)
+    for(std::size_t i = 0; i < rows; i++)
     {
-        a(i, 0) = a(i, 0) * num;
+        for(std::size_t j = 0; j < cols; j++)
+        {
+            a(i, j) = a(i, j) * num;
+        }
     }
 
     return a;
 }
 
+/**
+ * Multiply a Matrix for a scalar
+ *
+ * @param a The Matrix to operate
+ * @param num The scalar
+ * @return The Matrix after the operation
+ */
 template<typename T>
-Matrix<T> operator*(double num, const Matrix<T>& a)
+Matrix<T> operator*(double num, Matrix<T>& a)
 {
     auto [rows, cols] = a.shape();
-    Matrix<T> r(rows, cols);
     for(std::size_t i = 0; i < rows; i++)
     {
         for(std::size_t j = 0; j < cols; j++)
         {
-            r(i, j) = a(i, j) * num;
+            a(i, j) = a(i, j) * num;
         }
     }
 
-    return r;
+    return a;
+}
+
+/**
+ * Multiply a Matrix for a scalar
+ *
+ * @param a The Matrix to operate
+ * @param num The scalar
+ * @return The Matrix after the operation
+ */
+template<typename T>
+Matrix<T> operator*(Matrix<T>& a, double num)
+{
+    auto [rows, cols] = a.shape();
+    for(std::size_t i = 0; i < rows; i++)
+    {
+        for(std::size_t j = 0; j < cols; j++)
+        {
+            a(i, j) = a(i, j) * num;
+        }
+    }
+
+    return a;
 }
 
 /**
@@ -204,8 +269,8 @@ Matrix<T> operator*(double num, const Matrix<T>& a)
  * @param b Second operand
  * @return The Matrix after add
  */
-template<typename T, typename U>
-Matrix<T> operator+(const Matrix<T>& a, const Matrix<U>& b)
+template<typename T>
+Matrix<T> operator+(const Matrix<T>& a, const Matrix<T>& b)
 {
     auto [a_rows, a_cols] = a.shape();
     auto [b_rows, b_cols] = b.shape();
@@ -239,7 +304,7 @@ Matrix<T> operator-(const Matrix<T>& a, const Matrix<T>& b)
     auto [b_rows, b_cols] = b.shape();
     assert(a_rows == b_rows && a_cols == b_cols);
 
-    Matrix<T> c(a_rows, a_cols);
+    Matrix c(a_rows, a_cols);
     auto [rows, cols] = c.shape();
     for(std::size_t i = 0; i < rows; i++)
     {
@@ -261,8 +326,8 @@ Matrix<T> operator-(const Matrix<T>& a, const Matrix<T>& b)
  * @param b Second operand
  * @return The Matrix after operation
  */
-template<typename T, typename U>
-Matrix<T> hadamard(const Matrix<U>& a, const Matrix<T>& b)
+template<typename T>
+Matrix<T> hadamard(const Matrix<T>& a, const Matrix<T>& b)
 {
     auto [a_rows, a_cols] = a.shape();
     auto [b_rows, b_cols] = b.shape();
@@ -280,26 +345,6 @@ Matrix<T> hadamard(const Matrix<U>& a, const Matrix<T>& b)
                 sum += a(i, k) * b(k, j);
             }
             c(i, j) = sum;
-        }
-    }
-
-    return c;
-}
-
-template<typename T, typename U>
-Matrix<T> operator*(const Matrix<U>& a, const Matrix<T>& b)
-{
-    auto [a_rows, a_cols] = a.shape();
-    auto [b_rows, b_cols] = b.shape();
-    assert((a_rows == b_rows) && (a_cols == b_cols));
-
-    Matrix<T> c(a_rows, a_cols);
-    auto [rows, cols] = c.shape();
-    for(std::size_t i = 0; i < rows; i++)
-    {
-        for(std::size_t j = 0; j < cols; j++)
-        {
-            c(i, j) = a(i, j) * b(i, j);
         }
     }
 
