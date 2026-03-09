@@ -123,8 +123,8 @@ class Mlp
             y(4, 1)
         {
             Random<double> r(-1, 1);
-            r.fillMatrixWithRand(W1);
-            r.fillMatrixWithRand(W2);
+            r.fillMatrix(W1);
+            r.fillMatrix(W2);
         }
 
         void train()

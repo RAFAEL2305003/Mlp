@@ -40,7 +40,7 @@ class Random
          * Fills a Matrix of type T with random numbers
          * @param m - The Matrix to fill
          */
-        void fillMatrixWithRand(Matrix<T>& m)
+        void fillMatrix(Matrix<T>& m)
         {
             auto [rows, cols] = m.shape();
             for(std::size_t i = 0; i < rows; i++)
