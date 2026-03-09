@@ -100,6 +100,9 @@ class Matrix
          * @brief Transposes a Matrix
          *
          * Transposes a Matrix and return its reference
+         *  FIX: Change this method to return a new matrix
+         *  WARNING: If used wrong can broke the code
+         *
          * @return Transposed Matrix
          */
         Matrix transpose()

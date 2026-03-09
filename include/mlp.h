@@ -4,6 +4,7 @@
 #include "loss.h"
 
 // This MLP solves the XOR problem with a static number of layers and neurons per layer
+// TODO: implement a sum function to calculate the bias derivative, to avoid multiply matrices
 
 class Mlp
 {
@@ -60,25 +61,34 @@ class Mlp
 
         void backward()
         {
-            // backward from output to hidden
+            // backward from output to hidden layer:
+            // dMSE/dW2 = dMSE/dŶ * dŶ/dZ2 * dZ2/dW2
             Matrix d_mse_y = mse_derivative(Y, y);
             Matrix d_y_z2 = sigmoid_derivative(y);
             Matrix delta = d_mse_y * d_y_z2;
-            Matrix d_z2_w2 = A;
+            Matrix d_z2_w2 = A; // this is necessary because the tranpose method return the matrix itself changed not a new
+
             Matrix d_mse_w2 = hadamard(d_z2_w2.transpose(), delta);
+ 
+            // dMSE/dB2 = dMSE/dŶ * dŶ/dZ2 * dZ2/dB2
             auto [rows, cols] = Z2.shape();
-            Matrix d_z2_b2 = Matrix<double>(rows, cols, {1, 1, 1, 1});
-            Matrix d_mse_b2 = hadamard(d_z2_b2.transpose(), delta);
+            Matrix d_z2_b2 = Matrix<double>(rows, cols, std::vector<double>(rows * cols, 1));
+            Matrix d_mse_b2 = hadamard(Matrix<double>(rows, cols,
+                  std::vector<double>(rows * cols, 1)).transpose(), delta);
 
             // backward from hidden to input
+            // dMSE/dW1 = dMSE/dŶ * dŶ/dZ2 * dZ2/dA * dA/dZ1 * dZ1/dW1
             Matrix d_z2_a = W2;
             Matrix d_a_z1 = sigmoid_derivative(A);
             Matrix delta_h = hadamard(delta, d_z2_a.transpose());
             delta_h = delta_h * d_a_z1;
-            Matrix d_z1_w1 = X;
+
+            Matrix d_z1_w1 = X; // this is necessary because the tranpose method return the matrix itself changed not a new
             Matrix d_mse_w1 = hadamard(d_z1_w1.transpose(), delta_h);
+
+            // dMSE/dB1 = dMSE/dŶ * dŶ/dZ2 * dZ2/dA * dA/dZ1 * dZ1/dB1
             auto [rows_, cols_] = Z1.shape();
-            Matrix d_z1_b1 = Matrix<double>(rows_, cols_, {1, 1, 1, 1, 1, 1, 1, 1});
+            Matrix d_z1_b1 = Matrix<double>(rows_, cols_, std::vector<double>(rows_*cols_, 1));
             Matrix d_mse_b1 = hadamard(d_z1_b1.transpose(), delta_h);
 
             std::vector<double> row(cols_);
