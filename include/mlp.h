@@ -4,7 +4,6 @@
 #include "loss.h"
 
 // This MLP solves the XOR problem with a static number of layers and neurons per layer
-// TODO: implement a sum function to calculate the bias derivative, to avoid multiply matrices
 
 namespace nn
 {
