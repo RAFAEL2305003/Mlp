@@ -285,7 +285,21 @@ namespace math
 	{
 		auto [a_rows, a_cols] = a.shape();
 		auto [b_rows, b_cols] = b.shape();
-		assert(a_rows == b_rows && a_cols == b_cols);
+		assert(a_rows >= b_rows && a_cols == b_cols);
+
+		matrix b_exp = b; // todo: overload '=' op
+		// broadcasting the second matrix
+		if(a_rows > b_rows)
+		{
+			b_exp = matrix<T>(a_rows, a_cols);
+			for(size_t i = 0; i < a_rows; i++)
+			{
+				for(size_t j = 0; j < a_cols; j++)
+				{
+					b_exp(i, j) = b(0, j);
+				}
+			}
+		} 
 
 		matrix<T> c(a_rows, a_cols);
 		auto [rows, cols] = c.shape();
@@ -293,7 +307,7 @@ namespace math
 		{
 			for(std::size_t j = 0; j < cols; j++)
 			{
-				c(i, j) = a(i, j) + b(i, j);
+				c(i, j) = a(i, j) + b_exp(i, j);
 			}
 		}
 

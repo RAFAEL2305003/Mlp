@@ -27,37 +27,15 @@ namespace nn
         std::size_t epochs;
         double lr;
 
-        math::matrix<double> broadcast(const math::matrix<double>& Z, const math::matrix<double>& B)
-        {
-            auto [n_rows, n_neurons] = B.shape();
-            auto [rows, cols] = Z.shape();
-            math::matrix b = math::matrix<double>(rows, cols);
-
-            for(size_t i = 0; i < rows; i++)
-            {
-                for(size_t j = 0; j < n_neurons; j++)
-                {
-                    b(i, j) = B(0, j);
-                }
-            }
-
-            return b;
-        }
-
         math::matrix<double> forward()
         {
             // forward from input to hidden
-            Z1 = X * W1;
-            math::matrix b1 = broadcast(Z1, B1);
-            Z1 = Z1 + b1;
+            Z1 = X * W1 + B1;
             A = activation::sigmoid(Z1);
 
             // forward from hidden to output
-            Z2 = A * W2;
-            math::matrix b2 = broadcast(Z2, B2);
-            Z2 = Z2 + b2;
+            Z2 = A * W2 + B2;
             y = activation::sigmoid(Z2);
-
             return y;
         }
 
