@@ -50,8 +50,9 @@ namespace nn
  
             // dMSE/dB2 = dMSE/dŶ * dŶ/dZ2 * dZ2/dB2
             auto [rows, cols] = Z2.shape();
-            math::matrix d_mse_b2 = math::matrix<double>(rows, cols,
-                  std::vector<double>(rows * cols, 1)).transpose() * delta;
+            // math::matrix d_mse_b2 = math::matrix<double>(rows, cols,
+            //     std::vector<double>(rows * cols, 1)).transpose() * delta;
+			math::matrix d_mse_b2 = math::sum(delta);
 
             // backward from hidden to input
             // dMSE/dW1 = dMSE/dŶ * dŶ/dZ2 * dZ2/dA * dA/dZ1 * dZ1/dW1
@@ -63,16 +64,17 @@ namespace nn
             // dMSE/dB1 = dMSE/dŶ * dŶ/dZ2 * dZ2/dA * dA/dZ1 * dZ1/dB1
             auto [rows_, cols_] = Z1.shape();
             math::matrix d_z1_b1 = math::matrix<double>(rows_, cols_, std::vector<double>(rows_*cols_, 1));
-            math::matrix d_mse_b1 = math::matrix<double>(rows_, cols_, 
-										std::vector<double>(rows_*cols_, 1)).transpose() * delta_h;
-
-            std::vector<double> row(cols_);
-            for(size_t j = 0; j < cols_; j++)
-            {
-                row[j] = d_mse_b1(0, j);
-            }
-            auto [b1_rows, b1_cols] = B1.shape();
-            d_mse_b1 = math::matrix<double>(b1_rows, b1_cols, row);
+            // math::matrix d_mse_b1 = math::matrix<double>(rows_, cols_, 
+		    //					std::vector<double>(rows_*cols_, 1)).transpose() * delta_h;
+			
+            // std::vector<double> row(cols_);
+            // for(size_t j = 0; j < cols_; j++)
+            // {
+            //     row[j] = d_mse_b1(0, j);
+            // }
+            // auto [b1_rows, b1_cols] = B1.shape();
+            // d_mse_b1 = math::matrix<double>(b1_rows, b1_cols, row);
+			math::matrix d_mse_b1 = math::sum(delta_h);
 
             // updating the weights
             update_weights(d_mse_w1, d_mse_b1, d_mse_w2, d_mse_b2);

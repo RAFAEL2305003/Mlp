@@ -287,7 +287,7 @@ namespace math
 		auto [b_rows, b_cols] = b.shape();
 		assert(a_rows >= b_rows && a_cols == b_cols);
 
-		matrix b_exp = b; // todo: overload '=' op
+		matrix b_exp = std::move(b); // todo: overload '=' op
 		// broadcasting the second matrix
 		if(a_rows > b_rows)
 		{
@@ -394,5 +394,30 @@ namespace math
 		}
 
 		return c;
+	}
+
+	/**
+     * @brief Sum each column of an Matrix
+	 * 
+     * Sum each column of an Matrix and return a Matrix with (1, n) dimensions,
+	 * where n is the number of columns of the original Matrix
+	 * @param A Matrix(1, n) after sum
+     */
+	template<typename T>
+	matrix<T> sum(const matrix<T>& a)
+	{
+		auto [rows, cols] = a.shape();
+		matrix<T> r(1, cols);
+		for(std::size_t j = 0; j < cols; j++)
+		{
+			T sum{0};
+			for(std::size_t i = 0; i < rows; i++)
+			{
+				sum += a(i, j);
+			}
+			r(0, j) = sum;
+		}
+
+		return r;
 	}
 };
