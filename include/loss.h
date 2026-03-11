@@ -1,15 +1,18 @@
 #pragma once
 
-#include "matrix/matrix.h"
+#include "math/matrix.h"
 
-Matrix<double> mse_derivative(const Matrix<int>& Y, const Matrix<double>& y)
+namespace loss
 {
-    auto [rows, cols] = y.shape();
-    Matrix<double> result(rows, cols);
-    for(size_t i = 0; i < rows; i++)
-    {
-        result(i, 0) = (2.0 / rows) * (y(i, 0) - Y(i, 0));
-    }
+	math::matrix<double> mse_derivative(const math::matrix<int>& Y, const math::matrix<double>& y)
+	{
+		auto [rows, cols] = y.shape();
+		math::matrix<double> result(rows, cols);
+		for(size_t i = 0; i < rows; i++)
+		{
+			result(i, 0) = (2.0 / rows) * (y(i, 0) - Y(i, 0));
+		}
 
-    return result;
-}
+		return result;
+	}
+};
