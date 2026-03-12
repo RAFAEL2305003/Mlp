@@ -4,6 +4,12 @@
 
 namespace activation
 {
+	enum class type
+	{
+		relu,
+		sigmoid
+	};
+
 	math::matrix<double> relu(const math::matrix<double>& a)
 	{
 		auto [rows, cols] = a.shape();

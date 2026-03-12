@@ -4,6 +4,10 @@
 
 namespace loss
 {
+	enum class type { 
+		mse
+	};
+
 	math::matrix<double> mse_derivative(const math::matrix<int>& Y, const math::matrix<double>& y)
 	{
 		auto [rows, cols] = y.shape();
