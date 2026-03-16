@@ -1,3 +1,4 @@
+#include <stdexcept>
 #include "math/matrix.h"
 #include "activation.h"
 
@@ -29,6 +30,10 @@ namespace nn
 					a = activation::sigmoid(z);
 					return a;
 				}
+				default:
+				{
+					throw std::runtime_error("Invalid activation type.");
+				}
 			}
 		}
 
@@ -44,6 +49,10 @@ namespace nn
 				case activation::type::sigmoid:
 				{
 					return math::hadamard(delta_last, activation::sigmoid_derivative(a));
+				}
+				default:
+				{
+					throw std::runtime_error("Invalid activation type.");
 				}
 			}
 		}

@@ -1,3 +1,4 @@
+#include <stdexcept>
 #include "math/matrix.h"
 #include "loss.h"
 
@@ -22,6 +23,10 @@ namespace nn
 				{
 					return loss::mse(y, Y);
 				}
+				default:
+				{
+					throw std::runtime_error("Invalid loss type");
+				}
 			}
 		}
 
@@ -32,6 +37,10 @@ namespace nn
 				case loss::type::mse:
 				{
 					return loss::mse_derivative(y, Y); 
+				}
+				default:
+				{
+					throw std::runtime_error("Invalid loss type");
 				}
 			}
 		}
