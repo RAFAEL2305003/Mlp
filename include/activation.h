@@ -2,6 +2,8 @@
 
 #include "math/matrix.h"
 
+// TODO: Add softmax activation
+
 namespace activation
 {
 	enum class type

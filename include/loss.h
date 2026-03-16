@@ -2,6 +2,8 @@
 
 #include "math/matrix.h"
 
+// TODO: Add CrossEntropy loss
+
 namespace loss
 {
 	enum class type { 

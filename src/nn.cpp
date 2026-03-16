@@ -4,6 +4,9 @@
 #include "../include/loss_layer.h"
 #include "../include/rapidcsv.h"
 
+// TODO: Parameterize the number of neurons in each layer
+// TODO: Add dense_layer to nn namespace
+
 class dense_layer
 {
 	private:
