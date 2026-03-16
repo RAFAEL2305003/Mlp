@@ -11,7 +11,6 @@ namespace loss
 	math::matrix<double> mse(const math::matrix<double>& y, const math::matrix<double>& Y)
 	{
 		auto [rows, cols] = y.shape();
-		// y.print();
 		math::matrix<double> result(rows, cols);	
 		for(size_t i = 0; i < rows; i++)
 		{

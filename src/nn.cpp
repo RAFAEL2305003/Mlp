@@ -9,8 +9,7 @@ class dense_layer
 
 	double learning_rate;
 
-	size_t num_linear_layers;
-	size_t num_activation_layers;
+	size_t num_layers;
 
 	math::matrix<double> inputs;
 	math::matrix<double> outputs;
@@ -22,8 +21,7 @@ class dense_layer
 	public:
 	dense_layer(size_t epochs, 
 				double learning_rate, 
-				size_t num_linear_layers,
-				size_t num_activation_layers,
+				size_t num_layers,
 				math::matrix<double> inputs,
 				math::matrix<double> outputs)
 		: 
@@ -31,27 +29,25 @@ class dense_layer
 
 			learning_rate(learning_rate),
 
-			num_linear_layers(num_linear_layers),
-			num_activation_layers(num_activation_layers),
+			num_layers(num_layers),
 
 			inputs(inputs),
 			outputs(outputs)
 		{
 			math::random<double> rng;
 		
-			linear_layers.resize(num_linear_layers);
+			linear_layers.resize(num_layers);
+			activation_layers.resize(num_layers);
+
 			linear_layers[0] = nn::linear_layer<double>(2, 8, rng);
-			for(size_t i = 1; i < num_linear_layers - 1; i++)
+			activation_layers[0] = nn::activation_layer<double>(activation::type::sigmoid);
+			for(size_t i = 1; i < num_layers - 1; i++)
 			{
 				linear_layers[i] = nn::linear_layer<double>(linear_layers[i - 1].output_size, 8, rng);
-			}
-			linear_layers[num_linear_layers - 1] = nn::linear_layer<double>(linear_layers[num_linear_layers - 2].output_size, 1, rng);
-
-			activation_layers.resize(num_activation_layers);
-			for(size_t i = 0; i < num_activation_layers; i++)
-			{
 				activation_layers[i] = nn::activation_layer<double>(activation::type::sigmoid);
 			}
+			linear_layers[num_layers - 1] = nn::linear_layer<double>(linear_layers[num_layers - 2].output_size, 1, rng);
+			activation_layers[num_layers - 1] = nn::activation_layer<double>(activation::type::sigmoid);
 
 			mse_layer = nn::loss_layer<double>(loss::type::mse);
 		}
@@ -60,7 +56,7 @@ class dense_layer
 	{
 		math::matrix fwd = linear_layers[0].forward(inputs);
 		math::matrix act = activation_layers[0].forward(fwd);
-		for(size_t i = 1; i < linear_layers.size(); i++)
+		for(size_t i = 1; i < num_layers; i++)
 		{
 			fwd = linear_layers[i].forward(act);	
 			act = activation_layers[i].forward(fwd);
@@ -71,10 +67,10 @@ class dense_layer
 
 	void backward(const math::matrix<double>& Y)	
 	{
-		math::matrix dL_dy = mse_layer.backward(Y, outputs); // dL/dŷ
-		math::matrix delta = activation_layers[num_activation_layers - 1].backward(dL_dy);  // delta = dL/dŷ * dŷ/dz (for output layer)
-		math::matrix delta_last = linear_layers[num_activation_layers - 1].backward(delta); // delta_last = dL/dŷ * dŷ/dz * dz/da
-		for(int i = num_linear_layers - 2; i >= 0; i--)
+		math::matrix dL_dy = mse_layer.backward(Y, outputs);
+		math::matrix delta = activation_layers[num_layers - 1].backward(dL_dy); 
+		math::matrix delta_last = linear_layers[num_layers - 1].backward(delta);
+		for(int i = num_layers - 2; i >= 0; i--)
 		{
 			delta = activation_layers[i].backward(delta_last);	
 			delta_last = linear_layers[i].backward(delta);
@@ -83,7 +79,7 @@ class dense_layer
 
 	void update()
 	{
-		for(size_t i = 0; i < linear_layers.size(); i++)
+		for(size_t i = 0; i < num_layers; i++)
 		{
 			linear_layers[i].update(learning_rate);
 		}
@@ -107,9 +103,11 @@ int main()
 
 	double lr = 0.1;
 	size_t epochs = 10'000;
-	dense_layer dense(epochs, lr, 3, 3, x, y);
+	size_t num_layers = 3;
+	dense_layer dense(epochs, lr, num_layers, x, y);
 	dense.train();	
 	dense.feedforward().print();	
+
 	return 0;
 }
 
