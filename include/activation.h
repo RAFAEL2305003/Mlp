@@ -26,15 +26,15 @@ namespace activation
 		return r;
 	}
 
-	math::matrix<int> relu_derivative(const math::matrix<double>& a)
+	math::matrix<double> relu_derivative(const math::matrix<double>& a)
 	{
 		auto [rows, cols] = a.shape();
-		math::matrix<int> r(rows, cols);
+		math::matrix<double> r(rows, cols);
 		for(size_t i = 0; i < rows; i++)
 		{
 			for(size_t j = 0; j < cols; j++)
 			{
-				r(i, j) = (a(i, j) > 0) ? 1 : 0;
+				r(i, j) = (a(i, j) > 0) ? 1.0 : 0.0;
 			}
 		}
 

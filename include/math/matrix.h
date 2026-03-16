@@ -16,6 +16,13 @@ namespace math
 
 		public:
 		/**
+		 * @brief Creates an empty Matrix
+		 */
+		matrix() : rows(0), cols(0)
+		{
+		}
+
+		/**
 		 * @brief Creates a Matrix
 		 *
 		 * To success, both parameters must be greater than or equal to 0
@@ -24,7 +31,7 @@ namespace math
 		 */
 		matrix(std::size_t r, std::size_t c) : rows(r), cols(c)
 		{
-			assert(rows > 0 && cols > 0);
+			assert(rows >= 0 && cols >= 0);
 			elements.resize(rows * cols);
 		}
 
@@ -38,7 +45,7 @@ namespace math
 		 */
 		matrix(std::size_t r, std::size_t c, std::vector<T> v) : rows(r), cols(c)
 		{
-			assert(rows > 0 && cols > 0);
+			assert(rows >= 0 && cols >= 0);
 			elements.resize(rows * cols);
 			for(std::size_t i = 0; i < rows * cols; i++)
 			{
