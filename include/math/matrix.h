@@ -168,6 +168,7 @@ namespace math
 			}
 			std::cout << "\n";
 		}
+
 	};
 
 	/**
@@ -427,4 +428,24 @@ namespace math
 
 		return r;
 	}
+
+	template<typename T>
+	math::matrix<T> concat(const math::matrix<T>& a, std::vector<T>& b)
+	{
+		assert(a.shape().first == b.size());
+		
+		auto [rows, cols] = a.shape();
+		math::matrix<T> result(rows, cols + 1);
+		for(size_t i = 0; i < rows; i++)
+		{
+			for(size_t j = 0; j < cols; j++)
+			{
+				result(i, j) = a(i, j);	
+				result(i, j + 1) = b[i];
+			}
+		}
+		
+		return result;
+	}
 };
+
