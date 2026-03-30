@@ -245,6 +245,22 @@ namespace math
 	}
 
 	template<typename T>
+	matrix<T> operator/(const matrix<T>& a, double num)
+	{
+		auto [rows, cols] = a.shape();
+		matrix<T> r(rows, cols);
+		for(std::size_t i = 0; i < rows; i++)
+		{
+			for(std::size_t j = 0; j < cols; j++)
+			{
+				r(i, j) = a(i, j) / num;
+			}
+		}
+
+		return r;
+	}
+
+	template<typename T>
 	matrix<T> operator*(double num, const matrix<T>& a)
 	{
 		auto [rows, cols] = a.shape();
