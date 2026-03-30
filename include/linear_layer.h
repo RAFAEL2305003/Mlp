@@ -38,11 +38,14 @@ namespace nn
 			return z;
 		}
 
-		math::matrix<T> backward(const math::matrix<T>& delta)
+		math::matrix<T> backward(const math::matrix<T>& delta, double batch_size)
 		{
 			dw = x.transpose() * delta;
+			dw = dw / batch_size;
 			db = math::sum(delta);
+			db = db /batch_size;
 			dx = delta * w.transpose();
+			dx = dx / batch_size;
 			return dx;
 		}
 
