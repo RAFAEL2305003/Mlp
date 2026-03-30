@@ -141,9 +141,10 @@ class dense_layer
 	void train(size_t batch_size, counter& c)
 	{
 		auto [rows, cols] = dataset.shape();
-		size_t rmd = rows % batch_size;
 		size_t num_batches = rows / batch_size;
+		size_t old_batch_size = batch_size;
 
+		size_t rmd = rows % batch_size;
 		if(rmd != 0)
 		{
 			num_batches += 1;
@@ -167,6 +168,7 @@ class dense_layer
 				update();
 			}
 
+			batch_size = old_batch_size;
 			c.idx = 0;
 		}
 	}
@@ -214,9 +216,9 @@ class dense_layer
 int main()
 {
 	double lr = 0.1;
-	size_t epochs = 1'000;
-	size_t num_layers = 4;
-	size_t batch_size = 50;
+	size_t epochs = 3'000;
+	size_t num_layers = 5;
+	size_t batch_size = 51;
 
 	rapidcsv::Document train_dataset("two_moons.csv");
 
