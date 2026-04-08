@@ -93,11 +93,11 @@ class dense_layer
 			activation_layers.resize(num_layers);
 
 			linear_layers[0] = nn::linear_layer<double>(2, 4, rng);
-			activation_layers[0] = nn::activation_layer<double>(activation::type::sigmoid);
+			activation_layers[0] = nn::activation_layer<double>(activation::type::relu);
 			for(size_t i = 1; i < num_layers - 1; i++)
 			{
 				linear_layers[i] = nn::linear_layer<double>(linear_layers[i - 1].output_size, 4, rng);
-				activation_layers[i] = nn::activation_layer<double>(activation::type::sigmoid);
+				activation_layers[i] = nn::activation_layer<double>(activation::type::relu);
 			}
 			linear_layers[num_layers - 1] = nn::linear_layer<double>(linear_layers[num_layers - 2].output_size, 1, rng);
 			activation_layers[num_layers - 1] = nn::activation_layer<double>(activation::type::sigmoid);
@@ -122,11 +122,11 @@ class dense_layer
 	{
 		math::matrix dL_dy = mse_layer.backward(Y, y_batch);
 		math::matrix delta = activation_layers[num_layers - 1].backward(dL_dy); 
-		math::matrix delta_last = linear_layers[num_layers - 1].backward(delta, 1);
+		math::matrix delta_last = linear_layers[num_layers - 1].backward(delta);
 		for(int i = num_layers - 2; i >= 0; i--)
 		{
 			delta = activation_layers[i].backward(delta_last);	
-			delta_last = linear_layers[i].backward(delta, 1);
+			delta_last = linear_layers[i].backward(delta);
 		}
 	}
 
@@ -149,9 +149,10 @@ class dense_layer
 		{
 			num_batches += 1;
 		}
-
 		for(size_t e = 0; e < epochs; e++)
 		{
+			double total_loss = 0.0;
+
 			for(size_t i = 0; i < num_batches; i++)
 			{
 				if(i == num_batches - 1 && rmd != 0)
@@ -164,9 +165,12 @@ class dense_layer
 				math::matrix<double> y_batch = get_cols(batch, 2, 3);
 
 				math::matrix fwd_pass = feedforward(x_batch);
+				total_loss += mse_layer.forward(fwd_pass, y_batch);
 				backward(fwd_pass, y_batch);			
 				update();
 			}
+			if(e % 10 == 0)
+				std::cout << "epoch: " << e << ", loss: " << total_loss / batch_size << "\n";
 
 			batch_size = old_batch_size;
 			c.idx = 0;
@@ -216,9 +220,9 @@ class dense_layer
 int main()
 {
 	double lr = 0.1;
-	size_t epochs = 3'000;
+	size_t epochs = 1'000;
 	size_t num_layers = 5;
-	size_t batch_size = 51;
+	size_t batch_size = 50;
 
 	rapidcsv::Document train_dataset("two_moons.csv");
 

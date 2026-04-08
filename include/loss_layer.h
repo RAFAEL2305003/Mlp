@@ -15,7 +15,7 @@ namespace nn
 
 		loss_layer(loss::type loss_type) : loss_type(loss_type) {}	
 
-		math::matrix<T> forward(const math::matrix<T>& y, const math::matrix<T>& Y)
+		T forward(const math::matrix<T>& y, const math::matrix<T>& Y)
 		{
 			switch(loss_type)
 			{
