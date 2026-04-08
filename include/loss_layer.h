@@ -23,6 +23,10 @@ namespace nn
 				{
 					return loss::mse(y, Y);
 				}
+				case loss::type::cross_entropy:
+				{
+					return loss::cross_entropy(y, Y);
+				}
 				default:
 				{
 					throw std::runtime_error("Invalid loss type");
@@ -38,6 +42,10 @@ namespace nn
 				{
 					return loss::mse_derivative(y, Y); 
 				}
+				case loss::type::cross_entropy:
+				{
+					return loss::cross_entropy_derivative(y, Y);
+				}	
 				default:
 				{
 					throw std::runtime_error("Invalid loss type");

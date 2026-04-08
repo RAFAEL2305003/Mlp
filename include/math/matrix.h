@@ -37,6 +37,12 @@ namespace math
 			elements.resize(rows * cols);
 		}
 
+		matrix(std::size_t r, std::size_t c, double value) : rows(r), cols(c)
+		{
+			assert(rows >= 0 && cols >= 0);
+			elements.resize(rows * cols, value);
+		}
+
 		/**
 		 * @brief Creates a Matrix and fill it with vector data
 		 *

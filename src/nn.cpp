@@ -71,7 +71,7 @@ class dense_layer
 
 	std::vector<nn::linear_layer<double>> linear_layers;
 	std::vector<nn::activation_layer<double>> activation_layers;
-	nn::loss_layer<double> mse_layer;
+	nn::loss_layer<double> loss;
 	
 	public:
 	dense_layer(size_t epochs, 
@@ -92,17 +92,17 @@ class dense_layer
 			linear_layers.resize(num_layers);
 			activation_layers.resize(num_layers);
 
-			linear_layers[0] = nn::linear_layer<double>(2, 4, rng);
-			activation_layers[0] = nn::activation_layer<double>(activation::type::relu);
+			linear_layers[0] = nn::linear_layer<double>(4, 4, rng);
+			activation_layers[0] = nn::activation_layer<double>(activation::type::sigmoid);
 			for(size_t i = 1; i < num_layers - 1; i++)
 			{
 				linear_layers[i] = nn::linear_layer<double>(linear_layers[i - 1].output_size, 4, rng);
-				activation_layers[i] = nn::activation_layer<double>(activation::type::relu);
+				activation_layers[i] = nn::activation_layer<double>(activation::type::sigmoid);
 			}
-			linear_layers[num_layers - 1] = nn::linear_layer<double>(linear_layers[num_layers - 2].output_size, 1, rng);
-			activation_layers[num_layers - 1] = nn::activation_layer<double>(activation::type::sigmoid);
+			linear_layers[num_layers - 1] = nn::linear_layer<double>(linear_layers[num_layers - 2].output_size, 3, rng);
+			activation_layers[num_layers - 1] = nn::activation_layer<double>(activation::type::softmax);
 
-			mse_layer = nn::loss_layer<double>(loss::type::mse);
+			loss = nn::loss_layer<double>(loss::type::cross_entropy);
 		}
 
 	math::matrix<double> feedforward(const math::matrix<double>& x_batch)
@@ -120,12 +120,12 @@ class dense_layer
 
 	void backward(const math::matrix<double>& Y, const math::matrix<double>& y_batch)	
 	{
-		math::matrix dL_dy = mse_layer.backward(Y, y_batch);
-		math::matrix delta = activation_layers[num_layers - 1].backward(dL_dy); 
-		math::matrix delta_last = linear_layers[num_layers - 1].backward(delta);
+		math::matrix dL_dy = loss.backward(Y, y_batch);
+		// math::matrix delta = activation_layers[num_layers - 1].backward(dL_dy); 
+		math::matrix delta_last = linear_layers[num_layers - 1].backward(dL_dy);
 		for(int i = num_layers - 2; i >= 0; i--)
 		{
-			delta = activation_layers[i].backward(delta_last);	
+			math::matrix delta = activation_layers[i].backward(delta_last);	
 			delta_last = linear_layers[i].backward(delta);
 		}
 	}
@@ -161,16 +161,16 @@ class dense_layer
 				}
 
 				math::matrix<double> batch = nn::create_batches(dataset, batch_size, c);
-				math::matrix<double> x_batch = get_cols(batch, 0, 2);
-				math::matrix<double> y_batch = get_cols(batch, 2, 3);
+				math::matrix<double> x_batch = get_cols(batch, 0, 4);
+				math::matrix<double> y_batch = get_cols(batch, 4, 7);
 
 				math::matrix fwd_pass = feedforward(x_batch);
-				total_loss += mse_layer.forward(fwd_pass, y_batch);
+				total_loss += loss.forward(fwd_pass, y_batch);
 				backward(fwd_pass, y_batch);			
 				update();
 			}
-			if(e % 10 == 0)
-				std::cout << "epoch: " << e << ", loss: " << total_loss / batch_size << "\n";
+			if(e % 100 == 0)
+				std::cout << "epoch: " << e << ", loss: " << total_loss / num_batches << "\n";
 
 			batch_size = old_batch_size;
 			c.idx = 0;
@@ -179,18 +179,17 @@ class dense_layer
 
 	double accuracy(const math::matrix<double>& predicted)
 	{
-		auto [rows, cols] = predicted.shape();
+		size_t rows = predicted.shape().first;
+
+		std::vector y_pred = activation::argmax(predicted);
+		std::vector y_true = activation::argmax(get_cols(dataset, 4, 7));
+
 		size_t correct = 0;
-		math::matrix<double> outputs = get_cols(dataset, 2, 3);
 		for(size_t i = 0; i < rows; i++)
 		{
-			for(size_t j = 0; j < cols; j++)
+			if(y_pred[i] == y_true[i])
 			{
-				int pred = (predicted(i, j) > 0.5) ? 1 : 0;
-				if(pred == outputs(i, j))
-				{
-					correct++;
-				}
+				correct++;
 			}
 		}		
 
@@ -219,26 +218,33 @@ class dense_layer
 
 int main()
 {
-	double lr = 0.1;
-	size_t epochs = 1'000;
+	double lr = 0.001;
+	size_t epochs = 5'000;
 	size_t num_layers = 5;
-	size_t batch_size = 50;
+	size_t batch_size = 60;
 
-	rapidcsv::Document train_dataset("two_moons.csv");
+	rapidcsv::Document train_dataset("iris.csv");
+	std::vector<double> attr1 = train_dataset.GetColumn<double>("SepalLengthCm");
+	std::vector<double> attr2 = train_dataset.GetColumn<double>("SepalWidthCm");
+	std::vector<double> attr3 = train_dataset.GetColumn<double>("PetalLengthCm");
+	std::vector<double> attr4 = train_dataset.GetColumn<double>("PetalWidthCm");
 
-	// creating the matrix of attributes
-	std::vector<double> attr1 = train_dataset.GetColumn<double>("x1");
-	std::vector<double> attr2 = train_dataset.GetColumn<double>("x2");
-	std::vector<double> label = train_dataset.GetColumn<double>("label");
+	std::vector<double> label1 = train_dataset.GetColumn<double>("Species_Iris-setosa");
+	std::vector<double> label2 = train_dataset.GetColumn<double>("Species_Iris-versicolor");
+	std::vector<double> label3 = train_dataset.GetColumn<double>("Species_Iris-virginica");
 	math::matrix<double> dataset(attr1.size(), 1, attr1);
 	dataset = concat(dataset, attr2);
-	dataset = concat(dataset, label);
+	dataset = concat(dataset, attr3);
+	dataset = concat(dataset, attr4);
+	dataset = concat(dataset, label1);
+	dataset = concat(dataset, label2);
+	dataset = concat(dataset, label3);
 
 	nn::counter c;
 	nn::dense_layer dense(epochs, lr, num_layers, dataset);
 	dense.train(batch_size, c);	
 
-	math::matrix predictions = dense.feedforward(nn::get_cols(dataset, 0, 2));
+	math::matrix predictions = dense.feedforward(nn::get_cols(dataset, 0, 4));
 	std::cout << "Accuracy = " << std::round(dense.accuracy(predictions) * 100) << "%" << "\n";
 
 	return 0;

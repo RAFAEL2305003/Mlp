@@ -30,6 +30,11 @@ namespace nn
 					a = activation::sigmoid(z);
 					return a;
 				}
+				case activation::type::softmax:
+				{
+					a = activation::softmax(z);
+					return a;
+				}
 				default:
 				{
 					throw std::runtime_error("Invalid activation type.");
@@ -49,6 +54,10 @@ namespace nn
 				case activation::type::sigmoid:
 				{
 					return math::hadamard(delta_last, activation::sigmoid_derivative(a));
+				}
+				case activation::type::softmax:
+				{
+					return math::matrix<double>(delta_last.shape().first, delta_last.shape().second, 1.0);
 				}
 				default:
 				{

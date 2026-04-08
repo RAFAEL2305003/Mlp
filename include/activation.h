@@ -2,15 +2,14 @@
 
 #include "math/matrix.h"
 
-// TODO: Add softmax activation
-
 namespace activation
 {
 	enum class type
 	{
 		relu,
 		sigmoid,
-		softmax
+		softmax,
+		argmax
 	};
 
 	math::matrix<double> relu(const math::matrix<double>& a)
@@ -81,46 +80,46 @@ namespace activation
 
 		for(size_t i = 0; i < rows; i++)
 		{
+			double max_val = z(i, 0);
+			for(size_t k = 1; k < cols; k++)
+			{
+				max_val = std::max(z(i, k), max_val);
+			}
+
+			double sum = 0.0;
+			for(size_t k = 0; k < cols; k++)
+			{
+				sum += std::exp(z(i, k) - max_val);
+			}
+
 			for(size_t j = 0; j < cols; j++)
 			{
-				double sum = 0.0;
-				for(size_t k = 0; k < cols; k++)
-					sum += std::exp(z(i, k));
-				r(i, j) = std::exp(z(i, j)) / sum;	
+				r(i, j) = std::exp(z(i, j) - max_val) / sum;	
 			}
 		}
 
 		return r;
 	}
 
-
-	math::matrix<double> softmax_derivative(const math::matrix<double>& a)
+	std::vector<size_t> argmax(const math::matrix<double>& z)
 	{
-		auto [rows, cols] = a.shape();
-		math::matrix<double> r(rows, cols);
-
+		auto [rows, cols] = z.shape();
+		std::vector<size_t> indices(rows);
 		for(size_t i = 0; i < rows; i++)
 		{
-			for(size_t j = 0; j < cols; j++)
+			double max_val = z(i, 0);
+			size_t max_idx = 0;
+			for(size_t j = 1; j < cols; j++)
 			{
-				double value = 0.0;
-				for(size_t k = 0; k < cols; k++)
+				if(max_val < z(i, j))
 				{
-					if(k == j)
-					{
-						value = a(i, k) * (1 - a(i, k));	
-						break;
-					}
-					else
-					{
-						value = -a(i, j) * a(i, k);
-						break;
-					}
+					max_val = z(i, j);
+					max_idx = j;
 				}
-				r(i, j) = value;
 			}
+			indices[i] = max_idx;	
 		}
 
-		return r;
+		return indices;
 	}
 };
