@@ -14,7 +14,6 @@ namespace nn {
 			counter() : idx(0) {}
 	};
 
-	// get the columns at the interval [low high)
 	math::matrix<double> get_cols(const math::matrix<double>& m, size_t low, size_t high)
 	{
 		auto [rows, cols] = m.shape();
@@ -35,7 +34,7 @@ namespace nn {
 		return r;
 	}
 
-
+	// todo: shuffle before create a batch
 	math::matrix<double> create_batches(const math::matrix<double>& dataset, size_t batch_size, counter& c)
 	{
 		auto [rows, cols] = dataset.shape();
@@ -112,7 +111,6 @@ class dense_layer
 		return act;
 	}
 
-	// backward for ce or bce as loss funcition
 	// todo: generalize this backward to mse and another loss functions
 	void backward(const math::matrix<double>& Y, const math::matrix<double>& y_batch)	
 	{
@@ -236,6 +234,7 @@ math::matrix<double> read_csv(std::string filename)
 
 int main()
 {
+	// todo: add this hyperparams to a json file
 	double lr = 0.001;
 	size_t epochs = 5'000;
 	size_t batch_size = 60;
