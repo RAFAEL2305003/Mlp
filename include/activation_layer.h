@@ -4,19 +4,18 @@
 
 namespace nn
 {
-	template<typename T>
 	class activation_layer
 	{
 		private:
 		activation::type act_type;
-		math::matrix<T> a;
+		math::matrix<double> a;
 		
 		public:
 		activation_layer() {}
 
 		activation_layer(activation::type act_type) : act_type(act_type) {}
 
-		math::matrix<T> forward(const math::matrix<T>& z)
+		math::matrix<double> forward(const math::matrix<double>& z)
 		{
 			switch(act_type)
 			{
@@ -43,7 +42,7 @@ namespace nn
 		}
 
 		// returns the delta of the current layer
-		math::matrix<T> backward(const math::matrix<T>& delta_last)
+		math::matrix<double> backward(const math::matrix<double>& delta_last)
 		{
 			switch(act_type)
 			{
@@ -54,10 +53,6 @@ namespace nn
 				case activation::type::sigmoid:
 				{
 					return math::hadamard(delta_last, activation::sigmoid_derivative(a));
-				}
-				case activation::type::softmax:
-				{
-					return math::matrix<double>(delta_last.shape().first, delta_last.shape().second, 1.0);
 				}
 				default:
 				{

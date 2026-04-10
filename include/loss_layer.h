@@ -4,7 +4,6 @@
 
 namespace nn
 {
-	template<typename T>
 	class loss_layer
 	{
 		private:
@@ -15,7 +14,7 @@ namespace nn
 
 		loss_layer(loss::type loss_type) : loss_type(loss_type) {}	
 
-		T forward(const math::matrix<T>& y, const math::matrix<T>& Y)
+		double forward(const math::matrix<double>& y, const math::matrix<double>& Y)
 		{
 			switch(loss_type)
 			{
@@ -38,7 +37,7 @@ namespace nn
 			}
 		}
 
-		math::matrix<T> backward(const math::matrix<T>& y,const math::matrix<T>& Y)
+		math::matrix<double> backward(const math::matrix<double>& y,const math::matrix<double>& Y)
 		{
 			switch(loss_type)
 			{

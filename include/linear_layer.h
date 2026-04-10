@@ -3,18 +3,17 @@
 
 namespace nn
 {
-	template<typename T>
 	class linear_layer
 	{
 		private:
-		math::matrix<T> x;
-		math::matrix<T> w;
-		math::matrix<T> b;
-		math::matrix<T> z;
+		math::matrix<double> x;
+		math::matrix<double> w;
+		math::matrix<double> b;
+		math::matrix<double> z;
 
-		math::matrix<T> dw;
-		math::matrix<T> dx;
-		math::matrix<T> db;
+		math::matrix<double> dw;
+		math::matrix<double> dx;
+		math::matrix<double> db;
 
 		public:
 		std::size_t input_size;
@@ -24,21 +23,21 @@ namespace nn
 
 		linear_layer(std::size_t input_size,
 					 std::size_t output_size,
-					 math::random<T>& rng)
+					 math::random<double>& rng)
 			: 
 			  	input_size(input_size),
 			  	output_size(output_size),
 				w(input_size, output_size),
               	b(1, output_size) { math::fill_random(w, rng, -1.0, 1.0); }
 		
-		math::matrix<T> forward(const math::matrix<T>& x)
+		math::matrix<double> forward(const math::matrix<double>& x)
 		{
 			this->x = x;
 			z = x * w + b;
 			return z;
 		}
 
-		math::matrix<T> backward(const math::matrix<T>& delta)
+		math::matrix<double> backward(const math::matrix<double>& delta)
 		{
 			dw = x.transpose() * delta;
 			db = math::sum(delta);
