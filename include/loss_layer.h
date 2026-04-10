@@ -23,9 +23,13 @@ namespace nn
 				{
 					return loss::mse(y, Y);
 				}
-				case loss::type::cross_entropy:
+				case loss::type::bce:
 				{
-					return loss::cross_entropy(y, Y);
+					return loss::bce(y, Y);
+				}
+				case loss::type::ce:
+				{
+					return loss::ce(y, Y);
 				}
 				default:
 				{
@@ -42,9 +46,13 @@ namespace nn
 				{
 					return loss::mse_derivative(y, Y); 
 				}
-				case loss::type::cross_entropy:
+				case loss::type::bce:
 				{
-					return loss::cross_entropy_derivative(y, Y);
+					return loss::bce_derivative(y, Y);
+				}
+				case loss::type::ce:
+				{
+					return loss::ce_derivative(y, Y);
 				}	
 				default:
 				{
