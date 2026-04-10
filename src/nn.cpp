@@ -4,8 +4,6 @@
 #include "../include/loss_layer.h"
 #include "../include/rapidcsv.h"
 
-// TODO: Parameterize the number of neurons in each layer
-
 namespace nn {
 
 	class counter
@@ -66,67 +64,64 @@ class dense_layer
 	size_t num_layers;
 
 	math::matrix<double> dataset;
-	// math::matrix<double> inputs;
-	// math::matrix<double> outputs;
 
-	std::vector<nn::linear_layer<double>> linear_layers;
-	std::vector<nn::activation_layer<double>> activation_layers;
-	nn::loss_layer<double> loss;
+	std::vector<nn::linear_layer> linear;
+	std::vector<nn::activation_layer> activation;
+	nn::loss_layer loss;
 	
 	public:
 	dense_layer(size_t epochs, 
 				double learning_rate, 
-				size_t num_layers,
+				std::vector<size_t> layers,
+				std::vector<activation::type> activations,
+				loss::type loss_type,
 				const math::matrix<double>& dataset)
 		: 
 			epochs(epochs),
 
 			learning_rate(learning_rate),
 
-			num_layers(num_layers),
+			num_layers(layers.size() - 1), // excluding input layer
 
 			dataset(dataset)
 		{
 			math::random<double> rng;
+
+			linear.resize(num_layers);
+			activation.resize(num_layers);
 		
-			linear_layers.resize(num_layers);
-			activation_layers.resize(num_layers);
-
-			linear_layers[0] = nn::linear_layer<double>(4, 4, rng);
-			activation_layers[0] = nn::activation_layer<double>(activation::type::sigmoid);
-			for(size_t i = 1; i < num_layers - 1; i++)
+			for(size_t i = 0; i < num_layers; i++)
 			{
-				linear_layers[i] = nn::linear_layer<double>(linear_layers[i - 1].output_size, 4, rng);
-				activation_layers[i] = nn::activation_layer<double>(activation::type::sigmoid);
+				linear[i] = nn::linear_layer(layers[i], layers[i + 1], rng);
+				activation[i] = nn::activation_layer(activations[i]);
 			}
-			linear_layers[num_layers - 1] = nn::linear_layer<double>(linear_layers[num_layers - 2].output_size, 3, rng);
-			activation_layers[num_layers - 1] = nn::activation_layer<double>(activation::type::softmax);
-
-			loss = nn::loss_layer<double>(loss::type::cross_entropy);
+			
+			loss = nn::loss_layer(loss_type);
 		}
 
 	math::matrix<double> feedforward(const math::matrix<double>& x_batch)
 	{
-		math::matrix fwd = linear_layers[0].forward(x_batch);
-		math::matrix act = activation_layers[0].forward(fwd);
+		math::matrix fwd = linear[0].forward(x_batch);
+		math::matrix act = activation[0].forward(fwd);
 		for(size_t i = 1; i < num_layers; i++)
 		{
-			fwd = linear_layers[i].forward(act);	
-			act = activation_layers[i].forward(fwd);
+			fwd = linear[i].forward(act);	
+			act = activation[i].forward(fwd);
 		}
 
 		return act;
 	}
 
+	// backward for ce or bce as loss funcition
+	// todo: generalize this backward to mse and another loss functions
 	void backward(const math::matrix<double>& Y, const math::matrix<double>& y_batch)	
 	{
 		math::matrix dL_dy = loss.backward(Y, y_batch);
-		// math::matrix delta = activation_layers[num_layers - 1].backward(dL_dy); 
-		math::matrix delta_last = linear_layers[num_layers - 1].backward(dL_dy);
+		math::matrix delta_last = linear[num_layers - 1].backward(dL_dy);
 		for(int i = num_layers - 2; i >= 0; i--)
 		{
-			math::matrix delta = activation_layers[i].backward(delta_last);	
-			delta_last = linear_layers[i].backward(delta);
+			math::matrix delta = activation[i].backward(delta_last);	
+			delta_last = linear[i].backward(delta);
 		}
 	}
 
@@ -134,7 +129,7 @@ class dense_layer
 	{
 		for(size_t i = 0; i < num_layers; i++)
 		{
-			linear_layers[i].update(learning_rate);
+			linear[i].update(learning_rate);
 		}
 	}
 
@@ -216,14 +211,10 @@ class dense_layer
 
 };
 
-int main()
+math::matrix<double> read_csv(std::string filename)
 {
-	double lr = 0.001;
-	size_t epochs = 5'000;
-	size_t num_layers = 5;
-	size_t batch_size = 60;
 
-	rapidcsv::Document train_dataset("iris.csv");
+	rapidcsv::Document train_dataset(filename);
 	std::vector<double> attr1 = train_dataset.GetColumn<double>("SepalLengthCm");
 	std::vector<double> attr2 = train_dataset.GetColumn<double>("SepalWidthCm");
 	std::vector<double> attr3 = train_dataset.GetColumn<double>("PetalLengthCm");
@@ -233,16 +224,32 @@ int main()
 	std::vector<double> label2 = train_dataset.GetColumn<double>("Species_Iris-versicolor");
 	std::vector<double> label3 = train_dataset.GetColumn<double>("Species_Iris-virginica");
 	math::matrix<double> dataset(attr1.size(), 1, attr1);
-	dataset = concat(dataset, attr2);
-	dataset = concat(dataset, attr3);
-	dataset = concat(dataset, attr4);
-	dataset = concat(dataset, label1);
-	dataset = concat(dataset, label2);
-	dataset = concat(dataset, label3);
+	dataset = math::concat(dataset, attr2);
+	dataset = math::concat(dataset, attr3);
+	dataset = math::concat(dataset, attr4);
+	dataset = math::concat(dataset, label1);
+	dataset = math::concat(dataset, label2);
+	dataset = math::concat(dataset, label3);
+
+	return dataset; 
+}
+
+int main()
+{
+	double lr = 0.001;
+	size_t epochs = 5'000;
+	size_t batch_size = 60;
+
+	std::vector<size_t> layers = {4, 4, 4, 4, 3};
+
+	std::vector<activation::type> activations = {activation::type::relu, activation::type::relu, activation::type::relu, activation::type::softmax};
+
+	std::string filename = "iris.csv";
+	math::matrix<double> dataset = read_csv(filename);
 
 	nn::counter c;
-	nn::dense_layer dense(epochs, lr, num_layers, dataset);
-	dense.train(batch_size, c);	
+	nn::dense_layer dense(epochs, lr, layers, activations, loss::type::ce, dataset);
+ 	dense.train(batch_size, c);	
 
 	math::matrix predictions = dense.feedforward(nn::get_cols(dataset, 0, 4));
 	std::cout << "Accuracy = " << std::round(dense.accuracy(predictions) * 100) << "%" << "\n";
