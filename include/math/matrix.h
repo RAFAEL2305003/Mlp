@@ -304,42 +304,19 @@ namespace math
 		return a;
 	}
 
-	/**
-	 * @brief Adds two Matrices
-	 *
-	 * Add two Matrices if both have the same dimensions
-	 * @param a First operand
-	 * @param b Second operand
-	 * @return The Matrix after add
-	 */
 	template<typename T, typename U>
 	matrix<T> operator+(const matrix<T>& a, const matrix<U>& b)
 	{
 		auto [a_rows, a_cols] = a.shape();
 		auto [b_rows, b_cols] = b.shape();
-		assert(a_rows >= b_rows && a_cols == b_cols);
-
-		matrix b_exp = std::move(b); // todo: overload '=' op
-		// broadcasting the second matrix
-		if(a_rows > b_rows)
-		{
-			b_exp = matrix<T>(a_rows, a_cols);
-			for(size_t i = 0; i < a_rows; i++)
-			{
-				for(size_t j = 0; j < a_cols; j++)
-				{
-					b_exp(i, j) = b(0, j);
-				}
-			}
-		} 
-
 		matrix<T> c(a_rows, a_cols);
-		auto [rows, cols] = c.shape();
-		for(std::size_t i = 0; i < rows; i++)
+		for(std::size_t i = 0; i < a_rows; i++)
 		{
-			for(std::size_t j = 0; j < cols; j++)
+			for(std::size_t j = 0; j < a_cols; j++)
 			{
-				c(i, j) = a(i, j) + b_exp(i, j);
+				size_t bi = (b_rows == 1) ? 0 : i;
+				size_t bj = (b_cols == 1) ? 0 : j;
+				c(i, j) = a(i, j) + b(bi, bj);
 			}
 		}
 
