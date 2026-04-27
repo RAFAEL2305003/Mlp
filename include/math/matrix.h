@@ -3,143 +3,83 @@
 #include <iostream>
 #include <vector>
 #include <cassert>
-
-// TODO: Test the concat method
+#include <sycl/sycl.hpp>
 
 namespace math
 {
+	sycl::queue q(sycl::gpu_selector_v);
+
 	template<typename T>
 	class matrix
 	{
 		private:
 		std::size_t rows;
 		std::size_t cols;
-		std::vector<T> elements;
 
 		public:
-		/**
-		 * @brief Creates an empty Matrix
-		 */
-		matrix() : rows(0), cols(0)
-		{
-		}
+		T* elements;
 
-		/**
-		 * @brief Creates a Matrix
-		 *
-		 * To success, both parameters must be greater than or equal to 0
-		 * @param r Number of rows
-		 * @param c Number of columns
-		 */
+		matrix() : rows(0), cols(0), elements(nullptr) {}
+
 		matrix(std::size_t r, std::size_t c) : rows(r), cols(c)
 		{
-			assert(rows >= 0 && cols >= 0);
-			elements.resize(rows * cols);
+			elements = sycl::malloc_shared<T>(rows * cols, q);
 		}
 
 		matrix(std::size_t r, std::size_t c, double value) : rows(r), cols(c)
 		{
-			assert(rows >= 0 && cols >= 0);
-			elements.resize(rows * cols, value);
+			elements = sycl::malloc_shared<T>(rows * cols, q);
+			q.fill(elements, static_cast<T>(value), rows * cols).wait();
 		}
 
-		/**
-		 * @brief Creates a Matrix and fill it with vector data
-		 *
-		 * To success, both parameters must be greater than or equal to 0
-		 * @param r Number of rows
-		 * @param c Number of columns
-		 * @param v The vector to fill
-		 */
-		matrix(std::size_t r, std::size_t c, std::vector<T> v) : rows(r), cols(c)
+		matrix(std::size_t r, std::size_t c, const std::vector<T>& v) : rows(r), cols(c)
 		{
-			assert(rows >= 0 && cols >= 0);
-			elements.resize(rows * cols);
-			for(std::size_t i = 0; i < rows * cols; i++)
+			elements = sycl::malloc_shared<T>(rows * cols, q);
+			q.memcpy(elements, v.data(), sizeof(T) * rows * cols).wait();
+		}
+
+		~matrix() { if(elements) sycl::free(elements, q); }
+
+		matrix(const matrix& other) : rows(other.shape().first), cols(other.shape().second)
+		{
+			elements = sycl::malloc_shared<T>(rows * cols, q);
+			q.memcpy(elements, other.elements, sizeof(T) * rows * cols).wait();
+		}
+
+		matrix& operator=(const matrix& other)
+		{
+			if(this != &other)
 			{
-				elements[i] = v[i];
+				if(elements) { sycl::free(elements, q); }
+				rows = other.shape().first;
+				cols = other.shape().second;
+				elements = sycl::malloc_shared<T>(rows * cols, q);
+				q.memcpy(elements, other.elements, sizeof(T) * rows * cols).wait();
 			}
+			return *this;
 		}
 
-		/**
-		 * @brief Returns the dimensions of the Matrix
-		 *
-		 * Uses a tuple to return the dims
-		 * @return A mutable tuple with the dims
-		 */
-		std::pair<std::size_t, std::size_t> shape()
-		{
-			return std::pair<std::size_t, std::size_t>(rows, cols);
-		}
+		std::pair<std::size_t, std::size_t> shape() { return std::pair<std::size_t, std::size_t>(rows, cols); }
+		const std::pair<std::size_t, std::size_t> shape() const { return std::pair<std::size_t, std::size_t>(rows, cols); }
 
-		/**
-		 * @brief Returns the dimensions of the Matrix
-		 *
-		 * Uses a tuple to return the dims
-		 * @return An immutable tuple with the dims
-		 */
-		const std::pair<std::size_t, std::size_t> shape() const
-		{
-			return std::pair<std::size_t, std::size_t>(rows, cols);
-		}
+		T& operator()(std::size_t i, std::size_t j) { return elements[i * cols + j]; }
+		const T& operator()(std::size_t i, std::size_t j) const { return elements[i * cols + j]; }
 
-		/**
-		 * @brief Access and returns the item at i and j
-		 *
-		 * Returns the item if its dimensions(row and column) provided are valid
-		 * @param i Row index
-		 * @param j Column index
-		 * @return A reference to item itself
-		 */
-		T& operator()(std::size_t i, std::size_t j)
-		{
-			assert(i < rows && j < cols);
-			return elements[i * cols + j];
-		}
-
-
-		/**
-		 * @brief Access and returns the item at i and j
-		 *
-		 * Returns the item if its dimensions(row and column) provided are valid
-		 * @param i Row index
-		 * @param j Column index
-		 * @return A const reference to item itself
-		 */
-		const T& operator()(std::size_t i, std::size_t j) const
-		{
-			assert(i < rows && j < cols);
-			return elements[i * cols + j];
-		}
-
-
-		/**
-		 * @brief Transposes a Matrix
-		 *
-		 * Transposes a Matrix and return its reference
-		 * @return Transposed Matrix
-		 */
 		matrix transpose()
 		{
-			std::vector<double> new_elements(rows * cols);
-
-			for(std::size_t i = 0; i < rows; i++)
-			{
-				for(std::size_t j = 0; j < cols; j++)
-				{
-					new_elements[j * rows + i] = elements[i * cols + j];
-				}
-			}
-
-			matrix r(cols, rows, new_elements);
+			matrix r(cols, rows);
+			T* src = elements;
+			T* dst = r.elements;
+			size_t r_count = rows;
+			size_t c_count = cols;
+			q.parallel_for(sycl::range<2>(c_count, r_count), [=](sycl::id<2> idx) {
+				size_t j = idx[0];
+				size_t i = idx[1];	
+				dst[j * r_count + i] = src[i * c_count + j];
+			}).wait();
 			return r;
 		}
 
-		/**
-		 * @brief Prints a Matrix
-		 *
-		 * Print (*this) Matrix
-		 */
 		void print()
 		{
 			for(std::size_t i = 0; i < rows; i++)
@@ -158,7 +98,6 @@ namespace math
 			std::cout << "\n";
 		}
 
-	 
 		void print() const
 		{
 			for(std::size_t i = 0; i < rows; i++)
@@ -179,296 +118,134 @@ namespace math
 
 	};
 
-	/**
-	 * Creates a identity Matrix
-	 *
-	 * @param n The order of the Matrix
-	 * @return the identity Matrix with order n
-	 */
 	template<typename T>
-	matrix<T> identity(std::size_t n)
+	matrix<T> operator*(double num, matrix<T>& a)
 	{
-		matrix<T> I(n, n);
-		for(std::size_t i = 0; i < n; i++)
-		{
-			for(std::size_t j = 0; j < n; j++)
-			{
-				if(i == j)
-				{
-					I(i, j) = 1;
-				}
-			}
-		}
-
-		return I;
-	}
-
-	/**
-	 * Compare two Matrices
-	 *
-	 * @param a A Matrix to compare with
-	 * @param b Another Matrix
-	 * @return true if both matrices are equal, false otherwise
-	 */
-	template<typename T>
-	bool operator==(const matrix<T>& a, const matrix<T>& b)
-	{
-		auto [a_rows, a_cols] = a.shape();
-		auto [b_rows, b_cols] = b.shape();
-		assert(a_rows == b_rows && a_cols == b_cols);
-
-		for(std::size_t i = 0; i < a_rows; i++)
-		{
-			for(std::size_t j = 0; j < a_cols; j++)
-			{
-				if(a(i, j) != b(i, j))
-				{
-					return false;
-				}
-			}
-		}
-
-		return true;
-	}
-
-	/**
-	 * Multiply a Matrix for a scalar
-	 *
-	 * @param a The Matrix to operate
-	 * @param num The scalar
-	 * @return The Matrix after the operation
-	 */
-	template<typename T>
-	matrix<T> operator*=(matrix<T>& a, double num)
-	{
-		auto [rows, cols] = a.shape();
-		for(std::size_t i = 0; i < rows * cols; i++)
-		{
-			a(i, 0) = a(i, 0) * num;
-		}
-
+		size_t rows = a.shape().first;
+		size_t cols = a.shape().second;
+		T* a_ptr = a.elements;
+		q.parallel_for(sycl::range<1>(rows * cols), [=](sycl::id<1> i) {
+			a_ptr[i] = a_ptr[i] * num;
+		}).wait();
 		return a;
 	}
 
-	template<typename T>
-	matrix<T> operator/(const matrix<T>& a, double num)
-	{
-		auto [rows, cols] = a.shape();
-		matrix<T> r(rows, cols);
-		for(std::size_t i = 0; i < rows; i++)
-		{
-			for(std::size_t j = 0; j < cols; j++)
-			{
-				r(i, j) = a(i, j) / num;
-			}
-		}
-
-		return r;
-	}
-
-	template<typename T>
-	matrix<T> operator*(double num, const matrix<T>& a)
-	{
-		auto [rows, cols] = a.shape();
-		matrix<T> r(rows, cols);
-		for(std::size_t i = 0; i < rows; i++)
-		{
-			for(std::size_t j = 0; j < cols; j++)
-			{
-				r(i, j) = a(i, j) * num;
-			}
-		}
-
-		return r;
-	}
-
-	/**
-	 * Multiply a Matrix for a scalar(overload of above)
-	 *
-	 * @param a The Matrix to operate
-	 * @param num The scalar
-	 * @return The Matrix after the operation
-	 */
-	template<typename T>
-	matrix<T> operator*(matrix<T>& a, double num)
-	{
-		auto [rows, cols] = a.shape();
-		for(std::size_t i = 0; i < rows; i++)
-		{
-			for(std::size_t j = 0; j < cols; j++)
-			{
-				a(i, j) = a(i, j) * num;
-			}
-		}
-
-		return a;
-	}
-
-	/**
-	 * @brief Adds two Matrices
-	 *
-	 * Add two Matrices if both have the same dimensions
-	 * @param a First operand
-	 * @param b Second operand
-	 * @return The Matrix after add
-	 */
 	template<typename T, typename U>
 	matrix<T> operator+(const matrix<T>& a, const matrix<U>& b)
 	{
-		auto [a_rows, a_cols] = a.shape();
-		auto [b_rows, b_cols] = b.shape();
-		assert(a_rows >= b_rows && a_cols == b_cols);
-
-		matrix b_exp = std::move(b); // todo: overload '=' op
-		// broadcasting the second matrix
-		if(a_rows > b_rows)
-		{
-			b_exp = matrix<T>(a_rows, a_cols);
-			for(size_t i = 0; i < a_rows; i++)
-			{
-				for(size_t j = 0; j < a_cols; j++)
-				{
-					b_exp(i, j) = b(0, j);
-				}
-			}
-		} 
-
+		size_t a_rows = a.shape().first;
+		size_t a_cols = a.shape().second;
+		size_t b_rows = b.shape().first;
+		size_t b_cols = b.shape().second;
 		matrix<T> c(a_rows, a_cols);
-		auto [rows, cols] = c.shape();
-		for(std::size_t i = 0; i < rows; i++)
-		{
-			for(std::size_t j = 0; j < cols; j++)
-			{
-				c(i, j) = a(i, j) + b_exp(i, j);
-			}
-		}
-
+		T* a_ptr = a.elements;
+		T* b_ptr = b.elements;
+		T* c_ptr = c.elements;
+		q.parallel_for(sycl::range<2>(a_rows, a_cols), [=](sycl::id<2> idx) {
+			size_t i = idx[0];
+			size_t j = idx[1];
+			size_t bi = (b_rows == 1) ? 0 : i;
+			size_t bj = (b_cols == 1) ? 0 : j;
+			c_ptr[i * a_cols + j] = a_ptr[i * a_cols + j] + b_ptr[bi * b_cols + bj];
+		}).wait();
 		return c;
 	}
 
-	/**
-	 * @brief Subtract two Matrices
-	 *
-	 * Subtract two Matrices if both have the same dimensions
-	 * @param a First operand
-	 * @param b Second operand
-	 * @return The Matrix after subtraction
-	 */
 	template<typename T>
 	matrix<T> operator-(const matrix<T>& a, const matrix<T>& b)
 	{
-		auto [a_rows, a_cols] = a.shape();
-		auto [b_rows, b_cols] = b.shape();
-		assert(a_rows == b_rows && a_cols == b_cols);
-
+		size_t a_rows = a.shape().first;
+		size_t a_cols = a.shape().second;
+		size_t b_rows = b.shape().first;
+		size_t b_cols = b.shape().second;
 		matrix<T> c(a_rows, a_cols);
-		auto [rows, cols] = c.shape();
-		for(std::size_t i = 0; i < rows; i++)
-		{
-			for(std::size_t j = 0; j < cols; j++)
-			{
-				c(i, j) = a(i, j) - b(i, j);
-			}
-		}
-
+		T* a_ptr = a.elements;
+		T* b_ptr = b.elements;
+		T* c_ptr = c.elements;
+		q.parallel_for(sycl::range<2>(a_rows, a_cols), [=](sycl::id<2> idx) {
+			size_t i = idx[0];
+			size_t j = idx[1];
+			c_ptr[i * a_cols + j] = a_ptr[i * a_cols + j] - b_ptr[i * a_cols + j];
+		}).wait();
 		return c;
 	}
 
-	/**
-	 * @brief Multiply two Matrices
-	 *
-	 * Multiply two Matrices if first's number of columns
-	 * and second's number of rows are equal
-	 * @param a First operand
-	 * @param b Second operand
-	 * @return The Matrix after operation
-	 */
 	template<typename T, typename U>
 	matrix<T> operator*(const matrix<U>& a, const matrix<T>& b)
 	{
-		auto [a_rows, a_cols] = a.shape();
-		auto [b_rows, b_cols] = b.shape();
-		assert(a_cols == b_rows);
-
+		size_t a_rows = a.shape().first;
+		size_t a_cols = a.shape().second;
+		size_t b_cols = b.shape().second;
 		matrix<T> c(a_rows, b_cols);
-		auto [rows, cols] = c.shape();
-		for(std::size_t i = 0; i < rows; i++)
-		{
-			for(std::size_t j = 0; j < cols; j++)
-			{
-				double sum = 0;
-				for(std::size_t k = 0; k < a_cols; k++)
-				{
-					sum += a(i, k) * b(k, j);
-				}
-				c(i, j) = sum;
+		T* a_ptr = a.elements;
+		T* b_ptr = b.elements;
+		T* c_ptr = c.elements;
+		q.parallel_for(sycl::range<2>(a_rows, b_cols), [=](sycl::id<2> idx) {
+			size_t i = idx[0];
+			size_t j = idx[1];
+			T sum = 0;
+			for(size_t k = 0; k < a_cols; k++) {
+				sum += a_ptr[i * a_cols + k] * b_ptr[k * b_cols + j];
 			}
-		}
-
+			c_ptr[i * b_cols + j] = sum;
+		}).wait();
 		return c;
 	}
 
 	template<typename T, typename U>
 	matrix<T> hadamard(const matrix<U>& a, const matrix<T>& b)
 	{
-		auto [a_rows, a_cols] = a.shape();
-		auto [b_rows, b_cols] = b.shape();
-		assert((a_rows == b_rows) && (a_cols == b_cols));
-
+		size_t a_rows = a.shape().first;
+		size_t a_cols = a.shape().second;
+		size_t b_rows = b.shape().first;
+		size_t b_cols = b.shape().second;
 		matrix<T> c(a_rows, a_cols);
-		auto [rows, cols] = c.shape();
-		for(std::size_t i = 0; i < rows; i++)
-		{
-			for(std::size_t j = 0; j < cols; j++)
-			{
-				c(i, j) = a(i, j) * b(i, j);
-			}
-		}
-
+		T* a_ptr = a.elements;
+		T* b_ptr = b.elements;
+		T* c_ptr = c.elements;
+		q.parallel_for(sycl::range<2>(a_rows, a_cols), [=](sycl::id<2> idx) {
+			size_t i = idx[0];
+			size_t j = idx[1];
+			c_ptr[i * a_cols + j] = a_ptr[i * a_cols + j] * b_ptr[i * b_cols + j];
+		}).wait();
 		return c;
 	}
 
-	/**
-     * @brief Sum each column of an Matrix
-	 * 
-     * Sum each column of an Matrix and return a Matrix with (1, n) dimensions,
-	 * where n is the number of columns of the original Matrix
-	 * @param A Matrix(1, n) after sum
-     */
 	template<typename T>
 	matrix<T> sum(const matrix<T>& a)
 	{
-		auto [rows, cols] = a.shape();
+		size_t rows = a.shape().first;
+		size_t cols = a.shape().second;
 		matrix<T> r(1, cols);
-		for(std::size_t j = 0; j < cols; j++)
-		{
-			T sum{0};
-			for(std::size_t i = 0; i < rows; i++)
-			{
-				sum += a(i, j);
+		T* a_ptr = a.elements;
+		T* r_ptr = r.elements;
+		q.parallel_for(sycl::range<1>(cols), [=](sycl::id<1> idx) {
+			size_t j = idx;
+			T total = 0;
+			for(size_t i = 0; i < rows; i++) {
+				total += a_ptr[i * cols + j];
 			}
-			r(0, j) = sum;
-		}
-
+			r_ptr[j] = total;
+		}).wait();
 		return r;
 	}
 
 	template<typename T>
 	math::matrix<T> concat(const math::matrix<T>& a, std::vector<T>& b)
 	{
-		assert(a.shape().first == b.size());
-		
 		auto [rows, cols] = a.shape();
+		assert(rows == b.size());
 		math::matrix<T> result(rows, cols + 1);
+		T* a_ptr = a.elements;
+		T* res_ptr = result.elements;
 		for(size_t i = 0; i < rows; i++)
 		{
 			for(size_t j = 0; j < cols; j++)
 			{
 				result(i, j) = a(i, j);	
-				result(i, j + 1) = b[i];
 			}
+			result(i, cols) = b[i];
 		}
-		
 		return result;
 	}
 };

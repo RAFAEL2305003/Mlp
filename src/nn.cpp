@@ -237,7 +237,7 @@ int main()
 	// todo: add this hyperparams to a json file
 	double lr = 0.001;
 	size_t epochs = 5'000;
-	size_t batch_size = 60;
+	size_t batch_size = 100;
 
 	std::vector<size_t> layers = {4, 4, 4, 4, 3};
 
