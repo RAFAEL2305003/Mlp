@@ -111,14 +111,14 @@ class dense_layer
 		return act;
 	}
 
-	// todo: generalize this backward to mse and another loss functions
 	void backward(const math::matrix<double>& Y, const math::matrix<double>& y_batch)	
 	{
 		math::matrix dL_dy = loss.backward(Y, y_batch);
-		math::matrix delta_last = linear[num_layers - 1].backward(dL_dy);
+		math::matrix delta = activation[num_layers - 1].backward(dL_dy);
+		math::matrix delta_last = linear[num_layers - 1].backward(delta);
 		for(int i = num_layers - 2; i >= 0; i--)
 		{
-			math::matrix delta = activation[i].backward(delta_last);	
+			delta = activation[i].backward(delta_last);	
 			delta_last = linear[i].backward(delta);
 		}
 	}
@@ -154,8 +154,8 @@ class dense_layer
 				}
 
 				math::matrix<double> batch = nn::create_batches(dataset, batch_size, c);
-				math::matrix<double> x_batch = get_cols(batch, 0, 4);
-				math::matrix<double> y_batch = get_cols(batch, 4, 7);
+				math::matrix<double> x_batch = get_cols(batch, 0, 32);
+				math::matrix<double> y_batch = get_cols(batch, 32, 33);
 
 				math::matrix fwd_pass = feedforward(x_batch);
 				total_loss += loss.forward(fwd_pass, y_batch);
@@ -174,13 +174,12 @@ class dense_layer
 	{
 		size_t rows = predicted.shape().first;
 
-		std::vector y_pred = activation::argmax(predicted);
-		std::vector y_true = activation::argmax(get_cols(dataset, 4, 7));
+		std::vector actual = activation::argmax(get_cols(dataset, 32, 33));
 
 		size_t correct = 0;
 		for(size_t i = 0; i < rows; i++)
 		{
-			if(y_pred[i] == y_true[i])
+			if(predicted(i, 0) == actual[i])
 			{
 				correct++;
 			}
@@ -209,7 +208,7 @@ class dense_layer
 
 };
 
-math::matrix<double> read_csv(std::string filename)
+/*math::matrix<double> read_csv(std::string filename)
 {
 
 	rapidcsv::Document train_dataset(filename);
@@ -230,27 +229,54 @@ math::matrix<double> read_csv(std::string filename)
 	dataset = math::concat(dataset, label3);
 
 	return dataset; 
+}*/
+
+math::matrix<double> read_csv(std::string filename)
+{
+    rapidcsv::Document attr_dataset(filename);
+    std::vector<std::string> attrs = {
+        "wrong_fragment", "urgent", "hot", "num_failed_logins",
+        "logged_in", "num_compromised", "root_shell", "su_attempted",
+        "num_root", "num_file_creations", "num_shells", "num_access_files",
+        "is_host_login", "is_guest_login", "count", "srv_count", "serror_rate",
+        "srv_serror_rate", "rerror_rate", "srv_rerror_rate", "same_srv_rate",
+        "diff_srv_rate", "srv_diff_host_rate", "dst_host_count", "dst_host_srv_count",
+        "dst_host_same_srv_rate", "dst_host_diff_srv_rate", "dst_host_same_src_port_rate",
+        "dst_host_srv_diff_host_rate", "dst_host_serror_rate", "dst_host_srv_serror_rate",
+        "dst_host_rerror_rate", "dst_host_srv_rerror_rate", "class"
+    };
+
+    std::vector<double> attr = attr_dataset.GetColumn<double>(attrs[0]);
+    math::matrix<double> dataset(attr.size(), 1, attr);
+    for(size_t i = 1; i < attrs.size(); i++)
+    {
+        attr = attr_dataset.GetColumn<double>(attrs[i]);
+        dataset = math::concat(dataset, attr);
+    }
+
+    return dataset;
 }
+
 
 int main()
 {
 	// todo: add this hyperparams to a json file
-	double lr = 0.001;
-	size_t epochs = 5'000;
-	size_t batch_size = 60;
+	double lr = 0.01;
+	size_t epochs = 1'000;
+	size_t batch_size = 50'000;
 
-	std::vector<size_t> layers = {4, 4, 4, 4, 3};
+	std::vector<size_t> layers = {32, 16, 8, 4, 1};
 
-	std::vector<activation::type> activations = {activation::type::relu, activation::type::relu, activation::type::relu, activation::type::softmax};
+	std::vector<activation::type> activations = {activation::type::relu, activation::type::relu, activation::type::relu, activation::type::sigmoid};
 
-	std::string filename = "iris.csv";
+	std::string filename = "nsl_kdd.csv";
 	math::matrix<double> dataset = read_csv(filename);
 
 	nn::counter c;
-	nn::dense_layer dense(epochs, lr, layers, activations, loss::type::ce, dataset);
+	nn::dense_layer dense(epochs, lr, layers, activations, loss::type::bce, dataset);
  	dense.train(batch_size, c);	
 
-	math::matrix predictions = dense.feedforward(nn::get_cols(dataset, 0, 4));
+	math::matrix predictions = dense.feedforward(nn::get_cols(dataset, 0, 32));
 	std::cout << "Accuracy = " << std::round(dense.accuracy(predictions) * 100) << "%" << "\n";
 
 	return 0;
