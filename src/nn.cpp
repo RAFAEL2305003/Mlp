@@ -154,8 +154,8 @@ class dense_layer
 				}
 
 				math::matrix<double> batch = nn::create_batches(dataset, batch_size, c);
-				math::matrix<double> x_batch = get_cols(batch, 0, 4);
-				math::matrix<double> y_batch = get_cols(batch, 4, 7);
+				math::matrix<double> x_batch = get_cols(batch, 0, 32);
+				math::matrix<double> y_batch = get_cols(batch, 32, 34);
 
 				math::matrix fwd_pass = feedforward(x_batch);
 				total_loss += loss.forward(fwd_pass, y_batch);
@@ -175,7 +175,7 @@ class dense_layer
 		size_t rows = predicted.shape().first;
 
 		std::vector y_pred = activation::argmax(predicted);
-		std::vector y_true = activation::argmax(get_cols(dataset, 4, 7));
+		std::vector y_true = activation::argmax(get_cols(dataset, 32, 34));
 
 		size_t correct = 0;
 		for(size_t i = 0; i < rows; i++)
@@ -209,26 +209,34 @@ class dense_layer
 
 };
 
-math::matrix<double> read_csv(std::string filename)
+math::matrix<double> read_csv(std::string attributes_file, std::string labels_file)
 {
+	rapidcsv::Document attr_dataset(attributes_file);
+	std::vector<std::string> attrs = { 
+		"wrong_fragment", "urgent", "hot", "num_failed_logins",
+	    "logged_in", "num_compromised", "root_shell", "su_attempted",
+	    "num_root", "num_file_creations", "num_shells", "num_access_files",
+		"is_host_login", "is_guest_login", "count", "srv_count", "serror_rate", 
+		"srv_serror_rate", "rerror_rate", "srv_rerror_rate", "same_srv_rate", 
+		"diff_srv_rate", "srv_diff_host_rate", "dst_host_count", "dst_host_srv_count", 
+		"dst_host_same_srv_rate", "dst_host_diff_srv_rate", "dst_host_same_src_port_rate",
+		"dst_host_srv_diff_host_rate", "dst_host_serror_rate", "dst_host_srv_serror_rate",
+		"dst_host_rerror_rate", "dst_host_srv_rerror_rate"
+    };
 
-	rapidcsv::Document train_dataset(filename);
-	std::vector<double> attr1 = train_dataset.GetColumn<double>("SepalLengthCm");
-	std::vector<double> attr2 = train_dataset.GetColumn<double>("SepalWidthCm");
-	std::vector<double> attr3 = train_dataset.GetColumn<double>("PetalLengthCm");
-	std::vector<double> attr4 = train_dataset.GetColumn<double>("PetalWidthCm");
+	std::vector<double> attr = attr_dataset.GetColumn<double>(attrs[0]);
+	math::matrix<double> dataset(attr.size(), 1, attr);
+	for(size_t i = 1; i < attrs.size(); i++)
+	{
+		attr = attr_dataset.GetColumn<double>(attrs[i]);	
+		dataset = math::concat(dataset, attr);
+	}
 
-	std::vector<double> label1 = train_dataset.GetColumn<double>("Species_Iris-setosa");
-	std::vector<double> label2 = train_dataset.GetColumn<double>("Species_Iris-versicolor");
-	std::vector<double> label3 = train_dataset.GetColumn<double>("Species_Iris-virginica");
-	math::matrix<double> dataset(attr1.size(), 1, attr1);
-	dataset = math::concat(dataset, attr2);
-	dataset = math::concat(dataset, attr3);
-	dataset = math::concat(dataset, attr4);
-	dataset = math::concat(dataset, label1);
-	dataset = math::concat(dataset, label2);
-	dataset = math::concat(dataset, label3);
-
+	rapidcsv::Document labels_dataset(labels_file);
+	std::vector<double> labels1 = labels_dataset.GetColumn<double>("0");
+	std::vector<double> labels2 = labels_dataset.GetColumn<double>("1");
+	dataset = math::concat(dataset, labels1);
+	dataset = math::concat(dataset, labels2);
 	return dataset; 
 }
 
@@ -236,21 +244,22 @@ int main()
 {
 	// todo: add this hyperparams to a json file
 	double lr = 0.001;
-	size_t epochs = 5'000;
-	size_t batch_size = 100;
+	size_t epochs = 10'000;
+	size_t batch_size = 50'000;
 
-	std::vector<size_t> layers = {4, 4, 4, 4, 3};
+	std::vector<size_t> layers = {32, 16, 8, 4, 2};
 
 	std::vector<activation::type> activations = {activation::type::relu, activation::type::relu, activation::type::relu, activation::type::softmax};
 
-	std::string filename = "iris.csv";
-	math::matrix<double> dataset = read_csv(filename);
+	std::string attr_filename = "NoClass11.csv";
+	std::string labels_filename = "labels.csv";
+	math::matrix<double> dataset = read_csv(attr_filename, labels_filename);
 
 	nn::counter c;
 	nn::dense_layer dense(epochs, lr, layers, activations, loss::type::ce, dataset);
  	dense.train(batch_size, c);	
 
-	math::matrix predictions = dense.feedforward(nn::get_cols(dataset, 0, 4));
+	math::matrix predictions = dense.feedforward(nn::get_cols(dataset, 0, 32));
 	std::cout << "Accuracy = " << std::round(dense.accuracy(predictions) * 100) << "%" << "\n";
 
 	return 0;
