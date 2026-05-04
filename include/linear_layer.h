@@ -47,6 +47,8 @@ namespace nn
 
 		void update(double lr)
 		{
+			dw.print();
+			db.print();
 			w = w - (lr * dw);
 			b = b - (lr * db);
 		}

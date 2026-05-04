@@ -123,11 +123,13 @@ namespace math
 	{
 		size_t rows = a.shape().first;
 		size_t cols = a.shape().second;
+		matrix<T> result(rows, cols);
 		T* a_ptr = a.elements;
+		T* r_ptr = result.elements;
 		q.parallel_for(sycl::range<1>(rows * cols), [=](sycl::id<1> i) {
-			a_ptr[i] = a_ptr[i] * num;
+			r_ptr[i] = a_ptr[i] * num;
 		}).wait();
-		return a;
+		return result;
 	}
 
 	template<typename T, typename U>

@@ -34,7 +34,6 @@ namespace loss
 		assert(rows == Y.shape().first && cols == Y.shape().second);
 
 		math::matrix<double> loss(rows, cols);
-		std::cout << "Batch size = " << rows << "\n";
 		for(size_t i = 0; i < rows; i++)
 		{
 			loss(i, 0) = (2.0 / rows) * (y(i, 0) - Y(i, 0));
@@ -85,14 +84,23 @@ namespace loss
 		for(size_t i = 0; i < rows; i++)
 		{
 			double p = std::max(y(i, 0), epsilon);
-			loss += -std::log(p);
+			loss += -(Y(i,0) * std::log(p) + (1 - Y(i,0)) * std::log(1 - p + epsilon));;
 		}
 
 		return loss / rows;
 	}
 
-	math::matrix<double> bce_derivative(const math::matrix<double>& y, const math::matrix<double>& Y)
+	math::matrix<double> bce_derivative(const math::matrix<double>& y, 
+                                     const math::matrix<double>& Y)
 	{
-		return ce_derivative(y, Y);
+    	auto [rows, cols] = y.shape();
+    	math::matrix<double> result(rows, cols);
+    	const double epsilon = 1e-15;
+    	for(size_t i = 0; i < rows; i++)
+    	{
+        	double p = std::clamp(y(i, 0), epsilon, 1.0 - epsilon);
+        	result(i, 0) = -(Y(i, 0) / p) + (1.0 - Y(i, 0)) / (1.0 - p);
+    	}
+    	return result;
 	}
 };
