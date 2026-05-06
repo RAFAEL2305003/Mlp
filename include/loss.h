@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include "math/matrix.h"
 
 namespace loss
@@ -82,17 +83,33 @@ namespace loss
 
 		const double epsilon = 1e-15;
 		double loss = 0.0;
+
 		for(size_t i = 0; i < rows; i++)
 		{
-			double p = std::max(y(i, 0), epsilon);
-			loss += -std::log(p);
+			double pred = std::clamp(y(i, 0), epsilon, 1.0 - epsilon);
+			double target = Y(i, 0);
+			loss += -(target * std::log(pred) + (1.0 - target) * std::log(1.0 - pred));
 		}
-
 		return loss / rows;
 	}
 
-	math::matrix<double> bce_derivative(const math::matrix<double>& y, const math::matrix<double>& Y)
+	math::matrix<double> bce_derivative(const math::matrix<double>& y,
+										 const math::matrix<double>& Y)
 	{
-		return ce_derivative(y, Y);
+		auto [rows, cols] = y.shape();
+
+		assert(rows == Y.shape().first && cols == Y.shape().second);
+		assert(cols == 1);
+
+		math::matrix<double> grad(rows, cols);
+		const double epsilon = 1e-15;
+
+		for(size_t i = 0; i < rows; i++)
+		{
+			double pred = std::clamp(y(i, 0), epsilon, 1.0 - epsilon);
+			double target = Y(i, 0);
+			grad(i, 0) = ((pred - target) / (pred * (1.0 - pred))) / rows;
+		}
+		return grad;
 	}
 };
