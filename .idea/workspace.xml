@@ -6,11 +6,17 @@
   <component name="BackendCodeEditorMiscSettings">
     <option name="/Default/Housekeeping/FeatureSuggestion/FeatureSuggestionManager/DisabledSuggesters/=SwitchToGoToActionSuggester/@EntryIndexedValue" value="true" type="bool" />
   </component>
+  <component name="CMakeSettings">
+    <configurations />
+  </component>
   <component name="ChangeListManager">
     <list default="true" id="5fd47b4e-a033-4c56-aefb-46e73207ce18" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/include/conv_layer.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/conv1d_layer.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/include/linear_layer.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/linear_layer.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/include/loss.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/loss.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/include/math/matrix.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/math/matrix.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/include/pool_layer.h" beforeDir="false" afterPath="$PROJECT_DIR$/include/pooling_layer.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/nn.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/src/nn.cpp" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -27,11 +33,18 @@
   <component name="MacroExpansionManager">
     <option name="directoryName" value="k3dKmrus" />
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 7,
-  "fromUser": false
-}]]></component>
+  <component name="McpProjectServerCommands">
+    <commands />
+    <urls />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 7,
+  &quot;fromUser&quot;: false
+}</component>
   <component name="ProjectId" id="3DLsqos0WUTd7UEvSVo1rpiP6Ge" />
+  <component name="ProjectStatusUIService"><![CDATA[{
+  "uiKindId": "Widget"
+}]]></component>
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
@@ -50,6 +63,7 @@
     "codeWithMe.voiceChat.enabledByDefault": "false",
     "git-widget-placeholder": "sycl",
     "last_opened_file_path": "/home/rafael/Programming/C++/Mlp",
+    "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
     "org.rust.first.attach.projects": "true",
     "vue.rearranger.settings.migration": "true"

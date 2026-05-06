@@ -5,7 +5,7 @@ namespace nn
 {
 	class linear_layer
 	{
-		private:
+	private:
 		math::matrix<double> x;
 		math::matrix<double> w;
 		math::matrix<double> b;
@@ -15,7 +15,7 @@ namespace nn
 		math::matrix<double> dx;
 		math::matrix<double> db;
 
-		public:
+	public:
 		std::size_t input_size;
 		std::size_t output_size;
 
@@ -24,12 +24,12 @@ namespace nn
 		linear_layer(std::size_t input_size,
 					 std::size_t output_size,
 					 math::random<double>& rng)
-			: 
-			  	input_size(input_size),
-			  	output_size(output_size),
+			:
+				  input_size(input_size),
+				  output_size(output_size),
 				w(input_size, output_size),
-              	b(1, output_size) { math::fill_random(w, rng, -0.1, 0.1); }
-		
+				  b(1, output_size) { math::fill_random(w, rng, -1.0, 1.0); }
+
 		math::matrix<double> forward(const math::matrix<double>& x)
 		{
 			this->x = x;
@@ -45,10 +45,10 @@ namespace nn
 			return dx;
 		}
 
-		void update(double lr, size_t batch_size)
+		void update(double lr)
 		{
-			w = w - (lr * (1.0 / batch_size) * dw);
-			b = b - (lr * (1.0 / batch_size) * db);
+			w = w - (lr * dw);
+			b = b - (lr * db);
 		}
 	};
 };
