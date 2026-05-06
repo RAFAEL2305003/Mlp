@@ -1,6 +1,8 @@
 #include <cmath>
 #include "../include/linear_layer.h"
 #include "../include/activation_layer.h"
+#include "../include/conv1d_layer.h"
+#include "../include/pooling_layer.h"
 #include "../include/loss_layer.h"
 #include "../include/rapidcsv.h"
 
@@ -53,6 +55,21 @@ namespace nn {
 		return batch;
 	}
 
+	struct conv1d_config
+	{
+		size_t filters;
+		size_t kernel_size;
+		conv1d::type conv_type;
+		size_t stride;
+	};
+
+	struct pooling_config
+	{
+		pooling::type pool_type;
+		size_t pool_size;
+		size_t stride;
+	};
+
 class dense_layer
 {
 	private:
@@ -64,6 +81,9 @@ class dense_layer
 
 	math::matrix<double> dataset;
 
+	std::vector<nn::conv1d_layer> conv;
+	std::vector<nn::activation_layer> conv_activation;
+	std::vector<nn::pooling_layer> pool;
 	std::vector<nn::linear_layer> linear;
 	std::vector<nn::activation_layer> activation;
 	nn::loss_layer loss;
@@ -84,8 +104,14 @@ class dense_layer
 
 			dataset(dataset)
 		{
+			assert(layers.size() > 1);
+			assert(activations.size() == num_layers);
+
 			math::random<double> rng;
 
+			conv.resize(0);
+			conv_activation.resize(0);
+			pool.resize(0);
 			linear.resize(num_layers);
 			activation.resize(num_layers);
 		
@@ -98,9 +124,82 @@ class dense_layer
 			loss = nn::loss_layer(loss_type);
 		}
 
+	dense_layer(size_t epochs,
+				double learning_rate,
+				size_t input_size,
+				std::vector<conv1d_config> conv_configs,
+				std::vector<activation::type> conv_activations,
+				std::vector<pooling_config> pool_configs,
+				std::vector<size_t> layers,
+				std::vector<activation::type> activations,
+				loss::type loss_type,
+				const math::matrix<double>& dataset)
+		:
+			epochs(epochs),
+
+			learning_rate(learning_rate),
+
+			num_layers(layers.size() - 1),
+
+			dataset(dataset)
+		{
+			assert(conv_configs.size() == conv_activations.size());
+			assert(conv_configs.size() == pool_configs.size());
+			assert(layers.size() > 1);
+			assert(activations.size() == num_layers);
+
+			math::random<double> rng;
+
+			size_t current_input_size = input_size;
+
+			conv.resize(conv_configs.size());
+			conv_activation.resize(conv_configs.size());
+			pool.resize(pool_configs.size());
+
+			for(size_t i = 0; i < conv_configs.size(); i++)
+			{
+				conv[i] = nn::conv1d_layer(current_input_size,
+										   conv_configs[i].filters,
+										   conv_configs[i].kernel_size,
+										   rng,
+										   conv_configs[i].conv_type,
+										   conv_configs[i].stride);
+				conv_activation[i] = nn::activation_layer(conv_activations[i]);
+
+				pool[i] = nn::pooling_layer(pool_configs[i].pool_type,
+											conv[i].output_size,
+											conv_configs[i].filters,
+											pool_configs[i].pool_size,
+											pool_configs[i].stride);
+
+				current_input_size = conv_configs[i].filters * pool[i].output_size;
+			}
+
+			assert(layers[0] == current_input_size);
+
+			linear.resize(num_layers);
+			activation.resize(num_layers);
+
+			for(size_t i = 0; i < num_layers; i++)
+			{
+				linear[i] = nn::linear_layer(layers[i], layers[i + 1], rng);
+				activation[i] = nn::activation_layer(activations[i]);
+			}
+
+			loss = nn::loss_layer(loss_type);
+		}
+
 	math::matrix<double> feedforward(const math::matrix<double>& x_batch)
 	{
-		math::matrix fwd = linear[0].forward(x_batch);
+		math::matrix<double> features = x_batch;
+		for(size_t i = 0; i < conv.size(); i++)
+		{
+			features = conv[i].forward(features);
+			features = conv_activation[i].forward(features);
+			features = pool[i].forward(features);
+		}
+
+		math::matrix fwd = linear[0].forward(features);
 		math::matrix act = activation[0].forward(fwd);
 		for(size_t i = 1; i < num_layers; i++)
 		{
@@ -121,10 +220,22 @@ class dense_layer
 			delta = activation[i].backward(delta_last);	
 			delta_last = linear[i].backward(delta);
 		}
+
+		for(size_t i = conv.size(); i-- > 0;)
+		{
+			delta_last = pool[i].backward(delta_last);
+			delta_last = conv_activation[i].backward(delta_last);
+			delta_last = conv[i].backward(delta_last);
+		}
 	}
 
 	void update()
 	{
+		for(size_t i = 0; i < conv.size(); i++)
+		{
+			conv[i].update(learning_rate);
+		}
+
 		for(size_t i = 0; i < num_layers; i++)
 		{
 			linear[i].update(learning_rate);
@@ -154,8 +265,8 @@ class dense_layer
 				}
 
 				math::matrix<double> batch = nn::create_batches(dataset, batch_size, c);
-				math::matrix<double> x_batch = get_cols(batch, 0, 32);
-				math::matrix<double> y_batch = get_cols(batch, 32, 33);
+				math::matrix<double> x_batch = get_cols(batch, 0, 33);
+				math::matrix<double> y_batch = get_cols(batch, 33, 34);
 
 				math::matrix fwd_pass = feedforward(x_batch);
 				total_loss += loss.forward(fwd_pass, y_batch);
@@ -174,7 +285,7 @@ class dense_layer
 	{
 		size_t rows = predicted.shape().first;
 
-		std::vector actual = activation::argmax(get_cols(dataset, 32, 33));
+		std::vector actual = activation::argmax(get_cols(dataset, 33, 34));
 
 		size_t correct = 0;
 		for(size_t i = 0; i < rows; i++)
@@ -207,29 +318,6 @@ class dense_layer
 	}
 
 };
-
-/*math::matrix<double> read_csv(std::string filename)
-{
-
-	rapidcsv::Document train_dataset(filename);
-	std::vector<double> attr1 = train_dataset.GetColumn<double>("SepalLengthCm");
-	std::vector<double> attr2 = train_dataset.GetColumn<double>("SepalWidthCm");
-	std::vector<double> attr3 = train_dataset.GetColumn<double>("PetalLengthCm");
-	std::vector<double> attr4 = train_dataset.GetColumn<double>("PetalWidthCm");
-
-	std::vector<double> label1 = train_dataset.GetColumn<double>("Species_Iris-setosa");
-	std::vector<double> label2 = train_dataset.GetColumn<double>("Species_Iris-versicolor");
-	std::vector<double> label3 = train_dataset.GetColumn<double>("Species_Iris-virginica");
-	math::matrix<double> dataset(attr1.size(), 1, attr1);
-	dataset = math::concat(dataset, attr2);
-	dataset = math::concat(dataset, attr3);
-	dataset = math::concat(dataset, attr4);
-	dataset = math::concat(dataset, label1);
-	dataset = math::concat(dataset, label2);
-	dataset = math::concat(dataset, label3);
-
-	return dataset; 
-}*/
 
 math::matrix<double> read_csv(std::string filename)
 {
@@ -265,7 +353,17 @@ int main()
 	size_t epochs = 1'000;
 	size_t batch_size = 50'000;
 
-	std::vector<size_t> layers = {32, 16, 8, 4, 1};
+	std::vector<nn::conv1d_config> conv_configs = {
+		{4, 3, conv1d::type::valid, 1}
+	};
+	std::vector<activation::type> conv_activations = {
+		activation::type::relu
+	};
+	std::vector<nn::pooling_config> pool_configs = {
+		{pooling::type::max, 2, 2}
+	};
+
+	std::vector<size_t> layers = {60, 16, 8, 4, 1};
 
 	std::vector<activation::type> activations = {activation::type::relu, activation::type::relu, activation::type::relu, activation::type::sigmoid};
 
@@ -273,12 +371,20 @@ int main()
 	math::matrix<double> dataset = read_csv(filename);
 
 	nn::counter c;
-	nn::dense_layer dense(epochs, lr, layers, activations, loss::type::bce, dataset);
+	nn::dense_layer dense(epochs,
+						  lr,
+						  32,
+						  conv_configs,
+						  conv_activations,
+						  pool_configs,
+						  layers,
+						  activations,
+						  loss::type::bce,
+						  dataset);
  	dense.train(batch_size, c);	
 
-	math::matrix predictions = dense.feedforward(nn::get_cols(dataset, 0, 32));
+	math::matrix predictions = dense.feedforward(nn::get_cols(dataset, 0, 33));
 	std::cout << "Accuracy = " << std::round(dense.accuracy(predictions) * 100) << "%" << "\n";
 
 	return 0;
 }
-

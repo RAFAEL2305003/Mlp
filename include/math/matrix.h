@@ -4,8 +4,6 @@
 #include <vector>
 #include <cassert>
 
-// TODO: Test the concat method
-
 namespace math
 {
 	template<typename T>
@@ -17,20 +15,10 @@ namespace math
 		std::vector<T> elements;
 
 		public:
-		/**
-		 * @brief Creates an empty Matrix
-		 */
 		matrix() : rows(0), cols(0)
 		{
 		}
 
-		/**
-		 * @brief Creates a Matrix
-		 *
-		 * To success, both parameters must be greater than or equal to 0
-		 * @param r Number of rows
-		 * @param c Number of columns
-		 */
 		matrix(std::size_t r, std::size_t c) : rows(r), cols(c)
 		{
 			assert(rows >= 0 && cols >= 0);
@@ -43,14 +31,6 @@ namespace math
 			elements.resize(rows * cols, value);
 		}
 
-		/**
-		 * @brief Creates a Matrix and fill it with vector data
-		 *
-		 * To success, both parameters must be greater than or equal to 0
-		 * @param r Number of rows
-		 * @param c Number of columns
-		 * @param v The vector to fill
-		 */
 		matrix(std::size_t r, std::size_t c, std::vector<T> v) : rows(r), cols(c)
 		{
 			assert(rows >= 0 && cols >= 0);
@@ -61,64 +41,28 @@ namespace math
 			}
 		}
 
-		/**
-		 * @brief Returns the dimensions of the Matrix
-		 *
-		 * Uses a tuple to return the dims
-		 * @return A mutable tuple with the dims
-		 */
 		std::pair<std::size_t, std::size_t> shape()
 		{
 			return std::pair<std::size_t, std::size_t>(rows, cols);
 		}
 
-		/**
-		 * @brief Returns the dimensions of the Matrix
-		 *
-		 * Uses a tuple to return the dims
-		 * @return An immutable tuple with the dims
-		 */
 		const std::pair<std::size_t, std::size_t> shape() const
 		{
 			return std::pair<std::size_t, std::size_t>(rows, cols);
 		}
 
-		/**
-		 * @brief Access and returns the item at i and j
-		 *
-		 * Returns the item if its dimensions(row and column) provided are valid
-		 * @param i Row index
-		 * @param j Column index
-		 * @return A reference to item itself
-		 */
 		T& operator()(std::size_t i, std::size_t j)
 		{
 			assert(i < rows && j < cols);
 			return elements[i * cols + j];
 		}
 
-
-		/**
-		 * @brief Access and returns the item at i and j
-		 *
-		 * Returns the item if its dimensions(row and column) provided are valid
-		 * @param i Row index
-		 * @param j Column index
-		 * @return A const reference to item itself
-		 */
 		const T& operator()(std::size_t i, std::size_t j) const
 		{
 			assert(i < rows && j < cols);
 			return elements[i * cols + j];
 		}
 
-
-		/**
-		 * @brief Transposes a Matrix
-		 *
-		 * Transposes a Matrix and return its reference
-		 * @return Transposed Matrix
-		 */
 		matrix transpose()
 		{
 			std::vector<double> new_elements(rows * cols);
@@ -135,11 +79,6 @@ namespace math
 			return r;
 		}
 
-		/**
-		 * @brief Prints a Matrix
-		 *
-		 * Print (*this) Matrix
-		 */
 		void print()
 		{
 			for(std::size_t i = 0; i < rows; i++)
@@ -179,12 +118,6 @@ namespace math
 
 	};
 
-	/**
-	 * Creates a identity Matrix
-	 *
-	 * @param n The order of the Matrix
-	 * @return the identity Matrix with order n
-	 */
 	template<typename T>
 	matrix<T> identity(std::size_t n)
 	{
@@ -203,13 +136,6 @@ namespace math
 		return I;
 	}
 
-	/**
-	 * Compare two Matrices
-	 *
-	 * @param a A Matrix to compare with
-	 * @param b Another Matrix
-	 * @return true if both matrices are equal, false otherwise
-	 */
 	template<typename T>
 	bool operator==(const matrix<T>& a, const matrix<T>& b)
 	{
@@ -231,13 +157,6 @@ namespace math
 		return true;
 	}
 
-	/**
-	 * Multiply a Matrix for a scalar
-	 *
-	 * @param a The Matrix to operate
-	 * @param num The scalar
-	 * @return The Matrix after the operation
-	 */
 	template<typename T>
 	matrix<T> operator*=(matrix<T>& a, double num)
 	{
@@ -282,13 +201,6 @@ namespace math
 		return r;
 	}
 
-	/**
-	 * Multiply a Matrix for a scalar(overload of above)
-	 *
-	 * @param a The Matrix to operate
-	 * @param num The scalar
-	 * @return The Matrix after the operation
-	 */
 	template<typename T>
 	matrix<T> operator*(matrix<T>& a, double num)
 	{
@@ -323,14 +235,6 @@ namespace math
 		return c;
 	}
 
-	/**
-	 * @brief Subtract two Matrices
-	 *
-	 * Subtract two Matrices if both have the same dimensions
-	 * @param a First operand
-	 * @param b Second operand
-	 * @return The Matrix after subtraction
-	 */
 	template<typename T>
 	matrix<T> operator-(const matrix<T>& a, const matrix<T>& b)
 	{
@@ -351,15 +255,6 @@ namespace math
 		return c;
 	}
 
-	/**
-	 * @brief Multiply two Matrices
-	 *
-	 * Multiply two Matrices if first's number of columns
-	 * and second's number of rows are equal
-	 * @param a First operand
-	 * @param b Second operand
-	 * @return The Matrix after operation
-	 */
 	template<typename T, typename U>
 	matrix<T> operator*(const matrix<U>& a, const matrix<T>& b)
 	{
@@ -405,13 +300,6 @@ namespace math
 		return c;
 	}
 
-	/**
-     * @brief Sum each column of an Matrix
-	 * 
-     * Sum each column of an Matrix and return a Matrix with (1, n) dimensions,
-	 * where n is the number of columns of the original Matrix
-	 * @param A Matrix(1, n) after sum
-     */
 	template<typename T>
 	matrix<T> sum(const matrix<T>& a)
 	{
