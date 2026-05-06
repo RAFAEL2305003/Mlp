@@ -79,6 +79,9 @@ class dense_layer
 
 	size_t num_layers;
 
+	size_t input_size;
+	size_t output_size;
+
 	math::matrix<double> dataset;
 
 	std::vector<nn::conv1d_layer> conv;
@@ -101,6 +104,10 @@ class dense_layer
 			learning_rate(learning_rate),
 
 			num_layers(layers.size() - 1), // excluding input layer
+
+			input_size(layers[0]),
+
+			output_size(layers[layers.size() - 1]),
 
 			dataset(dataset)
 		{
@@ -141,6 +148,10 @@ class dense_layer
 
 			num_layers(layers.size() - 1),
 
+			input_size(input_size),
+
+			output_size(layers[layers.size() - 1]),
+
 			dataset(dataset)
 		{
 			assert(conv_configs.size() == conv_activations.size());
@@ -150,7 +161,7 @@ class dense_layer
 
 			math::random<double> rng;
 
-			size_t current_input_size = input_size;
+			size_t current_input_size = this->input_size;
 
 			conv.resize(conv_configs.size());
 			conv_activation.resize(conv_configs.size());
@@ -265,15 +276,15 @@ class dense_layer
 				}
 
 				math::matrix<double> batch = nn::create_batches(dataset, batch_size, c);
-				math::matrix<double> x_batch = get_cols(batch, 0, 33);
-				math::matrix<double> y_batch = get_cols(batch, 33, 34);
+				math::matrix<double> x_batch = get_cols(batch, 0, input_size);
+				math::matrix<double> y_batch = get_cols(batch, input_size, input_size + output_size);
 
 				math::matrix fwd_pass = feedforward(x_batch);
 				total_loss += loss.forward(fwd_pass, y_batch);
 				backward(fwd_pass, y_batch);			
 				update();
 			}
-			if(e % 100 == 0)
+			if(e % 5 == 0)
 				std::cout << "epoch: " << e << ", loss: " << total_loss / num_batches << "\n";
 
 			batch_size = old_batch_size;
@@ -283,18 +294,33 @@ class dense_layer
 
 	double accuracy(const math::matrix<double>& predicted)
 	{
-		size_t rows = predicted.shape().first;
-
-		std::vector actual = activation::argmax(get_cols(dataset, 33, 34));
+		auto [rows, cols] = predicted.shape();
+		math::matrix<double> y = get_cols(dataset, input_size, input_size + output_size);
 
 		size_t correct = 0;
-		for(size_t i = 0; i < rows; i++)
+		if(cols == 1)
 		{
-			if(predicted(i, 0) == actual[i])
+			for(size_t i = 0; i < rows; i++)
 			{
-				correct++;
+				double predicted_class = predicted(i, 0) >= 0.5 ? 1.0 : 0.0;
+				if(predicted_class == y(i, 0))
+				{
+					correct++;
+				}
 			}
-		}		
+		}
+		else
+		{
+			std::vector predicted_class = activation::argmax(predicted);
+			std::vector actual_class = activation::argmax(y);
+			for(size_t i = 0; i < rows; i++)
+			{
+				if(predicted_class[i] == actual_class[i])
+				{
+					correct++;
+				}
+			}
+		}
 
 		return static_cast<double> (correct) / rows;
 	}
@@ -350,22 +376,27 @@ int main()
 {
 	// todo: add this hyperparams to a json file
 	double lr = 0.01;
-	size_t epochs = 1'000;
+	size_t epochs = 100;
 	size_t batch_size = 50'000;
 
 	std::vector<nn::conv1d_config> conv_configs = {
+		{4, 3, conv1d::type::valid, 1},
 		{4, 3, conv1d::type::valid, 1}
 	};
 	std::vector<activation::type> conv_activations = {
+		activation::type::relu,
 		activation::type::relu
 	};
 	std::vector<nn::pooling_config> pool_configs = {
+		{pooling::type::max, 2, 2},
 		{pooling::type::max, 2, 2}
 	};
 
-	std::vector<size_t> layers = {60, 16, 8, 4, 1};
+	std::vector<size_t> layers = {116, 16, 8, 4, 1};
 
 	std::vector<activation::type> activations = {activation::type::relu, activation::type::relu, activation::type::relu, activation::type::sigmoid};
+
+	loss::type loss = loss::type::bce;
 
 	std::string filename = "nsl_kdd.csv";
 	math::matrix<double> dataset = read_csv(filename);
@@ -373,13 +404,13 @@ int main()
 	nn::counter c;
 	nn::dense_layer dense(epochs,
 						  lr,
-						  32,
+						  33,
 						  conv_configs,
 						  conv_activations,
 						  pool_configs,
 						  layers,
 						  activations,
-						  loss::type::bce,
+						  loss,
 						  dataset);
  	dense.train(batch_size, c);	
 
