@@ -73,34 +73,35 @@ namespace loss
 	}
 
 	double bce(const math::matrix<double>& y, const math::matrix<double>& Y)
-	{
-		auto [rows, cols] = y.shape();
+{
+    auto [rows, cols] = y.shape();
+    const double epsilon = 1e-15;
+    double loss = 0.0;
 
-		assert(rows == Y.shape().first && cols == Y.shape().second);
-		assert(cols == 1);
+    for(size_t i = 0; i < rows; i++)
+    {
+        // Clip values to avoid log(0)
+        double pred = std::clamp(y(i, 0), epsilon, 1.0 - epsilon);
+        double target = Y(i, 0);
+        loss += -(target * std::log(pred) + (1.0 - target) * std::log(1.0 - pred));
+    }
+    return loss / rows;
+}
 
-		const double epsilon = 1e-15;
-		double loss = 0.0;
-		for(size_t i = 0; i < rows; i++)
-		{
-			double p = std::max(y(i, 0), epsilon);
-			loss += -(Y(i,0) * std::log(p) + (1 - Y(i,0)) * std::log(1 - p + epsilon));;
-		}
-
-		return loss / rows;
-	}
-
-	math::matrix<double> bce_derivative(const math::matrix<double>& y, 
+math::matrix<double> bce_derivative(const math::matrix<double>& y, 
                                      const math::matrix<double>& Y)
-	{
-    	auto [rows, cols] = y.shape();
-    	math::matrix<double> result(rows, cols);
-    	const double epsilon = 1e-15;
-    	for(size_t i = 0; i < rows; i++)
-    	{
-        	double p = std::clamp(y(i, 0), epsilon, 1.0 - epsilon);
-        	result(i, 0) = -(Y(i, 0) / p) + (1.0 - Y(i, 0)) / (1.0 - p);
-    	}
-    	return result;
-	}
+{
+    auto [rows, cols] = y.shape();
+    math::matrix<double> grad(rows, cols);
+    const double epsilon = 1e-15;
+
+    for(size_t i = 0; i < rows; i++)
+    {
+        double pred = std::clamp(y(i, 0), epsilon, 1.0 - epsilon);
+        double target = Y(i, 0);
+        // Standard BCE derivative: -(target/pred - (1-target)/(1-pred))
+        grad(i, 0) = (pred - target) / (pred * (1.0 - pred));
+    }
+    return grad;
+}
 };

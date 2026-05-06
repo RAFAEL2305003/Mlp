@@ -28,7 +28,7 @@ namespace nn
 			  	input_size(input_size),
 			  	output_size(output_size),
 				w(input_size, output_size),
-              	b(1, output_size) { math::fill_random(w, rng, -1.0, 1.0); }
+              	b(1, output_size) { math::fill_random(w, rng, -0.1, 0.1); }
 		
 		math::matrix<double> forward(const math::matrix<double>& x)
 		{
@@ -45,12 +45,10 @@ namespace nn
 			return dx;
 		}
 
-		void update(double lr)
+		void update(double lr, size_t batch_size)
 		{
-			dw.print();
-			db.print();
-			w = w - (lr * dw);
-			b = b - (lr * db);
+			w = w - (lr * (1.0 / batch_size) * dw);
+			b = b - (lr * (1.0 / batch_size) * db);
 		}
 	};
 };

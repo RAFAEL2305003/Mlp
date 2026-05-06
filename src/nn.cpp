@@ -113,21 +113,21 @@ class dense_layer
 
 	void backward(const math::matrix<double>& Y, const math::matrix<double>& y_batch)	
 	{
-    	math::matrix dL_dy = loss.backward(Y, y_batch);
-    	math::matrix delta = activation[num_layers - 1].backward(dL_dy);
-    	math::matrix delta_last = linear[num_layers - 1].backward(delta);
-    	for(int i = num_layers - 2; i >= 0; i--)
+    	math::matrix dL_dy = loss.backward(Y, y_batch); 
+    
+    	math::matrix current_delta = dL_dy;
+    	for(int i = num_layers - 1; i >= 0; i--)
     	{
-        	delta = activation[i].backward(delta_last);
-        	delta_last = linear[i].backward(delta);
+        	current_delta = activation[i].backward(current_delta);
+        	current_delta = linear[i].backward(current_delta);
     	}
 	}
 
-	void update()
+	void update(size_t batch_size)
 	{
 		for(size_t i = 0; i < num_layers; i++)
 		{
-			linear[i].update(learning_rate);
+			linear[i].update(learning_rate, batch_size);
 		}
 	}
 
@@ -146,7 +146,6 @@ class dense_layer
 		{
 			double total_loss = 0.0;
 
-			std::cout<<"epoch: " << e << "\n";
 			for(size_t i = 0; i < num_batches; i++)
 			{
 				if(i == num_batches - 1 && rmd != 0)
@@ -155,43 +154,39 @@ class dense_layer
 				}
 
 				math::matrix<double> batch = nn::create_batches(dataset, batch_size, c);
-				math::matrix<double> x_batch = get_cols(batch, 0, 32);
-				math::matrix<double> y_batch = get_cols(batch, 32, 33);
+				math::matrix<double> x_batch = get_cols(batch, 0, 33);
+				math::matrix<double> y_batch = get_cols(batch, 33, 34);
 
 				math::matrix fwd_pass = feedforward(x_batch);
 				total_loss += loss.forward(fwd_pass, y_batch);
 				backward(fwd_pass, y_batch);			
-				std::cout<<"batch: " << i << "\n";
-				update();
+				update(batch_size);
 			}
 			if(e % 100 == 0)
-				//std::cout << "epoch: " << e << ", loss: " << total_loss / num_batches << "\n";
+				std::cout << "epoch: " << e << ", loss: " << total_loss / num_batches << "\n";
 			batch_size = old_batch_size;
 			c.idx = 0;
 		}
 	}
 
 	double accuracy(const math::matrix<double>& predicted)
-{
-    size_t rows = predicted.shape().first;
-    // We expect 1 column for binary classification
-    math::matrix actual = get_cols(dataset, 32, 33); 
+	{
+    	size_t rows = predicted.shape().first;
+    	math::matrix actual = get_cols(dataset, 33, 34); 
     
-    size_t correct = 0;
-    for(size_t i = 0; i < rows; i++)
-    {
-        // Apply threshold: 0.5
-        double p = (predicted(i, 0) >= 0.5) ? 1.0 : 0.0;
-        double a = actual(i, 0);
+    	size_t correct = 0;
+    	for(size_t i = 0; i < rows; i++)
+		{
+        	double p = (predicted(i, 0) >= 0.5) ? 1.0 : 0.0;
+        	double a = actual(i, 0);
+        	if(p == a)
+        	{
+            	correct++;
+        	}
+    	}       
 
-        if(p == a)
-        {
-            correct++;
-        }
-    }       
-
-    return static_cast<double>(correct) / rows;
-}
+    	return static_cast<double>(correct) / rows;
+	}
 
 };
 
@@ -267,10 +262,10 @@ int main()
 {
 	// todo: add this hyperparams to a json file
 	double lr = 0.01;
-	size_t epochs = 2;
-	size_t batch_size = 100;
+	size_t epochs = 300;
+	size_t batch_size = 500;
 
-	std::vector<size_t> layers = {32, 16, 8, 4, 1};
+	std::vector<size_t> layers = {32, 32, 16, 8, 1};
 
 	std::vector<activation::type> activations = {activation::type::relu, activation::type::relu, activation::type::relu, activation::type::sigmoid};
 
@@ -281,7 +276,7 @@ int main()
 	nn::dense_layer dense(epochs, lr, layers, activations, loss::type::bce, dataset);
  	dense.train(batch_size, c);	
 
-	math::matrix predictions = dense.feedforward(nn::get_cols(dataset, 0, 32));
+	math::matrix predictions = dense.feedforward(nn::get_cols(dataset, 0, 33));
 	std::cout << "Accuracy = " << std::round(dense.accuracy(predictions) * 100) << "%" << "\n";
 
 	return 0;
