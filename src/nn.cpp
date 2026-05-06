@@ -55,21 +55,6 @@ namespace nn {
 		return batch;
 	}
 
-	struct conv1d_config
-	{
-		size_t filters;
-		size_t kernel_size;
-		conv1d::type conv_type;
-		size_t stride;
-	};
-
-	struct pooling_config
-	{
-		pooling::type pool_type;
-		size_t pool_size;
-		size_t stride;
-	};
-
 class dense_layer
 {
 	private:
@@ -134,9 +119,9 @@ class dense_layer
 	dense_layer(size_t epochs,
 				double learning_rate,
 				size_t input_size,
-				std::vector<conv1d_config> conv_configs,
+				std::vector<conv1d::config> conv_configs,
 				std::vector<activation::type> conv_activations,
-				std::vector<pooling_config> pool_configs,
+				std::vector<pooling::config> pool_configs,
 				std::vector<size_t> layers,
 				std::vector<activation::type> activations,
 				loss::type loss_type,
@@ -260,14 +245,12 @@ class dense_layer
 		size_t old_batch_size = batch_size;
 
 		size_t rmd = rows % batch_size;
-		if(rmd != 0)
-		{
-			num_batches += 1;
-		}
+		(rmd != 0) ? num_batches += 1 : num_batches;
+
+		double total_loss = 0.0;
 		for(size_t e = 0; e < epochs; e++)
 		{
-			double total_loss = 0.0;
-
+			total_loss = 0;
 			for(size_t i = 0; i < num_batches; i++)
 			{
 				if(i == num_batches - 1 && rmd != 0)
@@ -290,6 +273,7 @@ class dense_layer
 			batch_size = old_batch_size;
 			c.idx = 0;
 		}
+		std::cout << "epoch: " << epochs << ", loss: " << total_loss / num_batches << "\n";
 	}
 
 	double accuracy(const math::matrix<double>& predicted)
@@ -379,7 +363,7 @@ int main()
 	size_t epochs = 100;
 	size_t batch_size = 50'000;
 
-	std::vector<nn::conv1d_config> conv_configs = {
+	std::vector<conv1d::config> conv_configs = {
 		{4, 3, conv1d::type::valid, 1},
 		{4, 3, conv1d::type::valid, 1}
 	};
@@ -387,7 +371,7 @@ int main()
 		activation::type::relu,
 		activation::type::relu
 	};
-	std::vector<nn::pooling_config> pool_configs = {
+	std::vector<pooling::config> pool_configs = {
 		{pooling::type::max, 2, 2},
 		{pooling::type::max, 2, 2}
 	};

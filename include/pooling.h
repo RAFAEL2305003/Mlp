@@ -13,6 +13,13 @@ namespace pooling
 		avg
 	};
 
+	struct config
+	{
+		pooling::type pool_type;
+		size_t pool_size;
+		size_t stride;
+	};
+
 	std::size_t output_size(std::size_t input_size,
 							std::size_t pool_size,
 							std::size_t stride)

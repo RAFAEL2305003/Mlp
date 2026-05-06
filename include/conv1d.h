@@ -13,6 +13,14 @@ namespace conv1d
 		full
 	};
 
+	struct config
+	{
+		size_t filters;
+		size_t kernel_size;
+		conv1d::type conv_type;
+		size_t stride;
+	};
+
 	std::size_t padding(type conv_type, std::size_t kernel_size)
 	{
 		switch(conv_type)
