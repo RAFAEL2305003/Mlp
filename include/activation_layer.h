@@ -54,6 +54,10 @@ namespace nn
 				{
 					return math::hadamard(delta_last, activation::sigmoid_derivative(a));
 				}
+				case activation::type::softmax:
+				{
+					return delta_last;
+				}
 				default:
 				{
 					throw std::runtime_error("Invalid activation type.");

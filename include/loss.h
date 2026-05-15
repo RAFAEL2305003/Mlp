@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 #include "math/matrix.h"
 
 namespace loss
@@ -76,7 +77,8 @@ namespace loss
 
 	double bce(const math::matrix<double>& y, const math::matrix<double>& Y)
 	{
-		auto [rows, cols] = y.shape();
+		size_t rows = y.shape().first;
+		size_t cols = y.shape().second;
 
 		assert(rows == Y.shape().first && cols == Y.shape().second);
 		assert(cols == 1);
@@ -84,11 +86,24 @@ namespace loss
 		const double epsilon = 1e-15;
 		double loss = 0.0;
 
-		for(size_t i = 0; i < rows; i++)
 		{
-			double pred = std::clamp(y(i, 0), epsilon, 1.0 - epsilon);
-			double target = Y(i, 0);
-			loss += -(target * std::log(pred) + (1.0 - target) * std::log(1.0 - pred));
+			sycl::buffer<const double, 2> y_buf(y.elements.data(), sycl::range<2>(rows, cols));
+			sycl::buffer<const double, 2> Y_buf(Y.elements.data(), sycl::range<2>(rows, cols));
+			sycl::buffer<double, 1> loss_buf(&loss, sycl::range<1>(1));
+
+			math::q.submit([&](sycl::handler& h) {
+				auto y_acc = y_buf.template get_access<sycl::access::mode::read>(h);
+				auto Y_acc = Y_buf.template get_access<sycl::access::mode::read>(h);
+				auto loss_reduction = sycl::reduction(loss_buf, h, sycl::plus<double>());
+
+				h.parallel_for(sycl::range<1>(rows), loss_reduction, [=](sycl::id<1> idx, auto& sum) {
+					size_t i = idx[0];
+					double pred = y_acc[sycl::id<2>(i, 0)];
+					pred = std::min(std::max(pred, epsilon), 1.0 - epsilon);
+					double target = Y_acc[sycl::id<2>(i, 0)];
+					sum += -(target * sycl::log(pred) + (1.0 - target) * sycl::log(1.0 - pred));
+				});
+			}).wait();
 		}
 		return loss / rows;
 	}
@@ -96,7 +111,8 @@ namespace loss
 	math::matrix<double> bce_derivative(const math::matrix<double>& y,
 										 const math::matrix<double>& Y)
 	{
-		auto [rows, cols] = y.shape();
+		size_t rows = y.shape().first;
+		size_t cols = y.shape().second;
 
 		assert(rows == Y.shape().first && cols == Y.shape().second);
 		assert(cols == 1);
@@ -104,11 +120,24 @@ namespace loss
 		math::matrix<double> grad(rows, cols);
 		const double epsilon = 1e-15;
 
-		for(size_t i = 0; i < rows; i++)
 		{
-			double pred = std::clamp(y(i, 0), epsilon, 1.0 - epsilon);
-			double target = Y(i, 0);
-			grad(i, 0) = ((pred - target) / (pred * (1.0 - pred))) / rows;
+			sycl::buffer<const double, 2> y_buf(y.elements.data(), sycl::range<2>(rows, cols));
+			sycl::buffer<const double, 2> Y_buf(Y.elements.data(), sycl::range<2>(rows, cols));
+			sycl::buffer<double, 2> grad_buf(grad.elements.data(), sycl::range<2>(rows, cols));
+
+			math::q.submit([&](sycl::handler& h) {
+				auto y_acc = y_buf.template get_access<sycl::access::mode::read>(h);
+				auto Y_acc = Y_buf.template get_access<sycl::access::mode::read>(h);
+				auto grad_acc = grad_buf.template get_access<sycl::access::mode::write>(h);
+
+				h.parallel_for(sycl::range<1>(rows), [=](sycl::id<1> idx) {
+					size_t i = idx[0];
+					double pred = y_acc[sycl::id<2>(i, 0)];
+					pred = std::min(std::max(pred, epsilon), 1.0 - epsilon);
+					double target = Y_acc[sycl::id<2>(i, 0)];
+					grad_acc[sycl::id<2>(i, 0)] = ((pred - target) / (pred * (1.0 - pred))) / rows;
+				});
+			}).wait();
 		}
 		return grad;
 	}

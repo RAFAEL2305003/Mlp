@@ -332,17 +332,8 @@ class dense_layer
 math::matrix<double> read_csv(std::string filename)
 {
     rapidcsv::Document attr_dataset(filename);
-    std::vector<std::string> attrs = {
-        "wrong_fragment", "urgent", "hot", "num_failed_logins",
-        "logged_in", "num_compromised", "root_shell", "su_attempted",
-        "num_root", "num_file_creations", "num_shells", "num_access_files",
-        "is_host_login", "is_guest_login", "count", "srv_count", "serror_rate",
-        "srv_serror_rate", "rerror_rate", "srv_rerror_rate", "same_srv_rate",
-        "diff_srv_rate", "srv_diff_host_rate", "dst_host_count", "dst_host_srv_count",
-        "dst_host_same_srv_rate", "dst_host_diff_srv_rate", "dst_host_same_src_port_rate",
-        "dst_host_srv_diff_host_rate", "dst_host_serror_rate", "dst_host_srv_serror_rate",
-        "dst_host_rerror_rate", "dst_host_srv_rerror_rate", "class"
-    };
+    std::vector<std::string> attrs = attr_dataset.GetColumnNames();
+    assert(!attrs.empty());
 
     std::vector<double> attr = attr_dataset.GetColumn<double>(attrs[0]);
     math::matrix<double> dataset(attr.size(), 1, attr);
@@ -359,8 +350,9 @@ int main()
 {
 	// todo: add this hyperparams to a json file
 	double lr = 0.01;
-	size_t epochs = 100;
-	size_t batch_size = 70'000;
+	size_t epochs = 10;
+	size_t batch_size = 102'350;
+	size_t input_size = 33;
 
 	std::vector<conv1d::config> conv_configs = {
 		{4, 3, conv1d::type::valid, 1},
@@ -375,19 +367,29 @@ int main()
 		{pooling::type::max, 2, 2}
 	};
 
-	std::vector<size_t> layers = {116, 16, 8, 4, 1};
-
-	std::vector<activation::type> activations = {activation::type::relu, activation::type::relu, activation::type::relu, activation::type::sigmoid};
-
-	loss::type loss = loss::type::bce;
-
 	std::string filename = "nsl_kdd.csv";
 	math::matrix<double> dataset = read_csv(filename);
+	size_t dataset_cols = dataset.shape().second;
+	assert(dataset_cols > input_size);
+	size_t output_size = dataset_cols - input_size;
 
+	std::vector<size_t> layers = {116, 16, 8, 4, output_size};
+
+	std::vector<activation::type> activations = {
+		activation::type::relu,
+		activation::type::relu,
+		activation::type::relu,
+		output_size == 1 ? activation::type::sigmoid : activation::type::softmax
+	};
+
+	loss::type loss = output_size == 1 ? loss::type::bce : loss::type::ce;
+	std::cout << "Running on: "
+			  << math::q.get_device().get_info<sycl::info::device::name>()
+			  << std::endl;
 	nn::counter c;
 	nn::dense_layer dense(epochs,
 						  lr,
-						  33,
+						  input_size,
 						  conv_configs,
 						  conv_activations,
 						  pool_configs,
@@ -397,7 +399,7 @@ int main()
 						  dataset);
  	dense.train(batch_size, c);
 
-	math::matrix predictions = dense.feedforward(nn::get_cols(dataset, 0, 33));
+	math::matrix predictions = dense.feedforward(nn::get_cols(dataset, 0, input_size));
 	std::cout << "Accuracy = " << std::round(dense.accuracy(predictions) * 100) << "%" << "\n";
 
 	return 0;

@@ -7,7 +7,7 @@
 
 namespace math
 {
-	inline sycl::queue q(sycl::gpu_selector_v);
+	inline sycl::queue q(sycl::default_selector_v);
 
 	template<typename T>
 	class matrix

@@ -36,34 +36,41 @@ namespace pooling
 									 std::size_t pool_size,
 									 std::size_t stride)
 	{
-		auto [batch_size, cols] = x.shape();
+		size_t batch_size = x.shape().first;
+		size_t cols = x.shape().second;
 
 		assert(cols == channels * input_size);
 
 		std::size_t out_size = output_size(input_size, pool_size, stride);
 		math::matrix<double> y(batch_size, channels * out_size);
 
-		for(std::size_t i = 0; i < batch_size; i++)
 		{
-			for(std::size_t c = 0; c < channels; c++)
-			{
-				for(std::size_t out_pos = 0; out_pos < out_size; out_pos++)
-				{
+			sycl::buffer<const double, 2> x_buf(x.elements.data(), sycl::range<2>(batch_size, cols));
+			sycl::buffer<double, 2> y_buf(y.elements.data(), sycl::range<2>(batch_size, channels * out_size));
+
+			math::q.submit([&](sycl::handler& h) {
+				auto x_acc = x_buf.template get_access<sycl::access::mode::read>(h);
+				auto y_acc = y_buf.template get_access<sycl::access::mode::write>(h);
+
+				h.parallel_for(sycl::range<3>(batch_size, channels, out_size), [=](sycl::id<3> idx) {
+					std::size_t i = idx[0];
+					std::size_t c = idx[1];
+					std::size_t out_pos = idx[2];
 					std::size_t window_start = out_pos * stride;
 					double max_value = std::numeric_limits<double>::lowest();
 
 					for(std::size_t k = 0; k < pool_size; k++)
 					{
-						double value = x(i, (c * input_size) + window_start + k);
+						double value = x_acc[sycl::id<2>(i, (c * input_size) + window_start + k)];
 						if(value > max_value)
 						{
 							max_value = value;
 						}
 					}
 
-					y(i, (c * out_size) + out_pos) = max_value;
-				}
-			}
+					y_acc[sycl::id<2>(i, (c * out_size) + out_pos)] = max_value;
+				});
+			}).wait();
 		}
 
 		return y;
@@ -75,30 +82,37 @@ namespace pooling
 									 std::size_t pool_size,
 									 std::size_t stride)
 	{
-		auto [batch_size, cols] = x.shape();
+		size_t batch_size = x.shape().first;
+		size_t cols = x.shape().second;
 
 		assert(cols == channels * input_size);
 
 		std::size_t out_size = output_size(input_size, pool_size, stride);
 		math::matrix<double> y(batch_size, channels * out_size);
 
-		for(std::size_t i = 0; i < batch_size; i++)
 		{
-			for(std::size_t c = 0; c < channels; c++)
-			{
-				for(std::size_t out_pos = 0; out_pos < out_size; out_pos++)
-				{
+			sycl::buffer<const double, 2> x_buf(x.elements.data(), sycl::range<2>(batch_size, cols));
+			sycl::buffer<double, 2> y_buf(y.elements.data(), sycl::range<2>(batch_size, channels * out_size));
+
+			math::q.submit([&](sycl::handler& h) {
+				auto x_acc = x_buf.template get_access<sycl::access::mode::read>(h);
+				auto y_acc = y_buf.template get_access<sycl::access::mode::write>(h);
+
+				h.parallel_for(sycl::range<3>(batch_size, channels, out_size), [=](sycl::id<3> idx) {
+					std::size_t i = idx[0];
+					std::size_t c = idx[1];
+					std::size_t out_pos = idx[2];
 					std::size_t window_start = out_pos * stride;
 					double sum = 0.0;
 
 					for(std::size_t k = 0; k < pool_size; k++)
 					{
-						sum += x(i, (c * input_size) + window_start + k);
+						sum += x_acc[sycl::id<2>(i, (c * input_size) + window_start + k)];
 					}
 
-					y(i, (c * out_size) + out_pos) = sum / pool_size;
-				}
-			}
+					y_acc[sycl::id<2>(i, (c * out_size) + out_pos)] = sum / pool_size;
+				});
+			}).wait();
 		}
 
 		return y;
@@ -135,8 +149,10 @@ namespace pooling
 									  std::size_t pool_size,
 									  std::size_t stride)
 	{
-		auto [batch_size, cols] = x.shape();
-		auto [delta_rows, delta_cols] = delta.shape();
+		size_t batch_size = x.shape().first;
+		size_t cols = x.shape().second;
+		size_t delta_rows = delta.shape().first;
+		size_t delta_cols = delta.shape().second;
 
 		std::size_t out_size = output_size(input_size, pool_size, stride);
 
@@ -144,32 +160,53 @@ namespace pooling
 		assert(delta_rows == batch_size);
 		assert(delta_cols == channels * out_size);
 
-		math::matrix<double> dx(batch_size, cols, 0.0);
+		math::matrix<double> dx(batch_size, cols);
 
-		for(std::size_t i = 0; i < batch_size; i++)
 		{
-			for(std::size_t c = 0; c < channels; c++)
-			{
-				for(std::size_t out_pos = 0; out_pos < out_size; out_pos++)
-				{
-					std::size_t window_start = out_pos * stride;
-					std::size_t max_idx = window_start;
-					double max_value = x(i, (c * input_size) + max_idx);
+			sycl::buffer<const double, 2> x_buf(x.elements.data(), sycl::range<2>(batch_size, cols));
+			sycl::buffer<const double, 2> delta_buf(delta.elements.data(), sycl::range<2>(delta_rows, delta_cols));
+			sycl::buffer<double, 2> dx_buf(dx.elements.data(), sycl::range<2>(batch_size, cols));
 
-					for(std::size_t k = 1; k < pool_size; k++)
+			math::q.submit([&](sycl::handler& h) {
+				auto x_acc = x_buf.template get_access<sycl::access::mode::read>(h);
+				auto delta_acc = delta_buf.template get_access<sycl::access::mode::read>(h);
+				auto dx_acc = dx_buf.template get_access<sycl::access::mode::write>(h);
+
+				h.parallel_for(sycl::range<3>(batch_size, channels, input_size), [=](sycl::id<3> idx) {
+					std::size_t i = idx[0];
+					std::size_t c = idx[1];
+					std::size_t input_idx = idx[2];
+					double sum = 0.0;
+
+					for(std::size_t out_pos = 0; out_pos < out_size; out_pos++)
 					{
-						std::size_t input_idx = window_start + k;
-						double value = x(i, (c * input_size) + input_idx);
-						if(value > max_value)
+						std::size_t window_start = out_pos * stride;
+						if(input_idx >= window_start && input_idx < window_start + pool_size)
 						{
-							max_value = value;
-							max_idx = input_idx;
+							std::size_t max_idx = window_start;
+							double max_value = x_acc[sycl::id<2>(i, (c * input_size) + max_idx)];
+
+							for(std::size_t k = 1; k < pool_size; k++)
+							{
+								std::size_t candidate_idx = window_start + k;
+								double value = x_acc[sycl::id<2>(i, (c * input_size) + candidate_idx)];
+								if(value > max_value)
+								{
+									max_value = value;
+									max_idx = candidate_idx;
+								}
+							}
+
+							if(input_idx == max_idx)
+							{
+								sum += delta_acc[sycl::id<2>(i, (c * out_size) + out_pos)];
+							}
 						}
 					}
 
-					dx(i, (c * input_size) + max_idx) += delta(i, (c * out_size) + out_pos);
-				}
-			}
+					dx_acc[sycl::id<2>(i, (c * input_size) + input_idx)] = sum;
+				});
+			}).wait();
 		}
 
 		return dx;
@@ -181,29 +218,41 @@ namespace pooling
 									  std::size_t pool_size,
 									  std::size_t stride)
 	{
-		auto [batch_size, delta_cols] = delta.shape();
+		size_t batch_size = delta.shape().first;
+		size_t delta_cols = delta.shape().second;
 
 		std::size_t out_size = output_size(input_size, pool_size, stride);
 
 		assert(delta_cols == channels * out_size);
 
-		math::matrix<double> dx(batch_size, channels * input_size, 0.0);
+		math::matrix<double> dx(batch_size, channels * input_size);
 
-		for(std::size_t i = 0; i < batch_size; i++)
 		{
-			for(std::size_t c = 0; c < channels; c++)
-			{
-				for(std::size_t out_pos = 0; out_pos < out_size; out_pos++)
-				{
-					std::size_t window_start = out_pos * stride;
-					double gradient = delta(i, (c * out_size) + out_pos) / pool_size;
+			sycl::buffer<const double, 2> delta_buf(delta.elements.data(), sycl::range<2>(batch_size, delta_cols));
+			sycl::buffer<double, 2> dx_buf(dx.elements.data(), sycl::range<2>(batch_size, channels * input_size));
 
-					for(std::size_t k = 0; k < pool_size; k++)
+			math::q.submit([&](sycl::handler& h) {
+				auto delta_acc = delta_buf.template get_access<sycl::access::mode::read>(h);
+				auto dx_acc = dx_buf.template get_access<sycl::access::mode::write>(h);
+
+				h.parallel_for(sycl::range<3>(batch_size, channels, input_size), [=](sycl::id<3> idx) {
+					std::size_t i = idx[0];
+					std::size_t c = idx[1];
+					std::size_t input_idx = idx[2];
+					double sum = 0.0;
+
+					for(std::size_t out_pos = 0; out_pos < out_size; out_pos++)
 					{
-						dx(i, (c * input_size) + window_start + k) += gradient;
+						std::size_t window_start = out_pos * stride;
+						if(input_idx >= window_start && input_idx < window_start + pool_size)
+						{
+							sum += delta_acc[sycl::id<2>(i, (c * out_size) + out_pos)] / pool_size;
+						}
 					}
-				}
-			}
+
+					dx_acc[sycl::id<2>(i, (c * input_size) + input_idx)] = sum;
+				});
+			}).wait();
 		}
 
 		return dx;

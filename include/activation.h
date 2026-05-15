@@ -14,62 +14,77 @@ namespace activation
 
 	math::matrix<double> relu(const math::matrix<double>& a)
 	{
-		auto [rows, cols] = a.shape();
+		size_t rows = a.shape().first;
+		size_t cols = a.shape().second;
 		math::matrix<double> r(rows, cols);
-
-		for(size_t i = 0; i < rows; i++)
 		{
-			for(size_t j = 0; j < cols; j++)
-			{
-				r(i, j) = std::max(0.0, a(i, j));
-			}
+			sycl::buffer<double, 2> a_buf(a.elements.data(), sycl::range<2>(rows, cols));
+			sycl::buffer<double, 2> r_buf(r.elements.data(), sycl::range<2>(rows, cols));
+			math::q.submit([&](sycl::handler& cgh) {
+				auto a_acc = a_buf.get_access<sycl::access_mode::read>(cgh);
+				auto r_acc = r_buf.get_access<sycl::access_mode::write>(cgh);
+				cgh.parallel_for(sycl::range<2>(rows, cols), [=](sycl::id<2> idx) {
+					r_acc[idx] = std::max(0.0, a_acc[idx]);
+				});
+			}).wait();
 		}
-
 		return r;
 	}
 
 	math::matrix<double> relu_derivative(const math::matrix<double>& a)
 	{
-		auto [rows, cols] = a.shape();
+		size_t rows = a.shape().first;
+		size_t cols = a.shape().second;
 		math::matrix<double> r(rows, cols);
-		for(size_t i = 0; i < rows; i++)
 		{
-			for(size_t j = 0; j < cols; j++)
-			{
-				r(i, j) = (a(i, j) > 0) ? 1.0 : 0.0;
-			}
+			sycl::buffer<double, 2> a_buf(a.elements.data(), sycl::range<2>(rows, cols));
+			sycl::buffer<double, 2> r_buf(r.elements.data(), sycl::range<2>(rows, cols));
+			math::q.submit([&](sycl::handler& cgh) {
+				auto a_acc = a_buf.get_access<sycl::access_mode::read>(cgh);
+				auto r_acc = r_buf.get_access<sycl::access_mode::write>(cgh);
+				cgh.parallel_for(sycl::range<2>(rows, cols), [=](sycl::id<2> idx) {
+					r_acc[idx] = (a_acc[idx] > 0) ? 1.0 : 0.0;
+				});
+			}).wait();
 		}
-
 		return r;
 	}
 
 	math::matrix<double> sigmoid(const math::matrix<double>& z)
 	{
-		auto [rows, cols] = z.shape();
+		size_t rows = z.shape().first;
+		size_t cols = z.shape().second;
 		math::matrix<double> r(rows, cols);
-		for(size_t i = 0; i < rows; i++)
 		{
-			for(size_t j = 0; j < cols; j++)
-			{
-				r(i, j) = 1 / (1 + std::exp(-z(i, j)));
-			}
+			sycl::buffer<double, 2> a_buf(z.elements.data(), sycl::range<2>(rows, cols));
+			sycl::buffer<double, 2> r_buf(r.elements.data(), sycl::range<2>(rows, cols));
+			math::q.submit([&](sycl::handler& cgh) {
+				auto a_acc = a_buf.get_access<sycl::access_mode::read>(cgh);
+				auto r_acc = r_buf.get_access<sycl::access_mode::write>(cgh);
+				cgh.parallel_for(sycl::range<2>(rows, cols), [=](sycl::id<2> idx) {
+					r_acc[idx] = 1 / (1 + std::exp(-a_acc[idx]));
+				});
+			}).wait();
 		}
-
 		return r;
 	}
 
 	math::matrix<double> sigmoid_derivative(const math::matrix<double>& a)
 	{
-		auto [rows, cols] = a.shape();
+		size_t rows = a.shape().first;
+		size_t cols = a.shape().second;
 		math::matrix<double> r(rows, cols);
-		for(size_t i = 0; i < rows; i++)
 		{
-			for(size_t j = 0; j < cols; j++)
-			{
-				r(i, j) = a(i, j) * (1 - a(i, j));
-			}
+			sycl::buffer<double, 2> a_buf(a.elements.data(), sycl::range<2>(rows, cols));
+			sycl::buffer<double, 2> r_buf(r.elements.data(), sycl::range<2>(rows, cols));
+			math::q.submit([&](sycl::handler& cgh) {
+				auto a_acc = a_buf.get_access<sycl::access_mode::read>(cgh);
+				auto r_acc = r_buf.get_access<sycl::access_mode::write>(cgh);
+				cgh.parallel_for(sycl::range<2>(rows, cols), [=](sycl::id<2> idx) {
+					r_acc[idx] = a_acc[idx] * (1 - a_acc[idx]);
+				});
+			}).wait();
 		}
-
 		return r;
 	}
 
