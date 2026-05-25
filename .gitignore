@@ -1,4 +1,5 @@
 nn
 xor
-tags
-.idea/
+preprocess.py
+env
+can_ids.csv
