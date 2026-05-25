@@ -6,14 +6,14 @@ namespace nn
 	class linear_layer
 	{
 	private:
-		math::matrix<double> x;
-		math::matrix<double> w;
-		math::matrix<double> b;
-		math::matrix<double> z;
+		math::matrix<float> x;
+		math::matrix<float> w;
+		math::matrix<float> b;
+		math::matrix<float> z;
 
-		math::matrix<double> dw;
-		math::matrix<double> dx;
-		math::matrix<double> db;
+		math::matrix<float> dw;
+		math::matrix<float> dx;
+		math::matrix<float> db;
 
 	public:
 		std::size_t input_size;
@@ -23,21 +23,21 @@ namespace nn
 
 		linear_layer(std::size_t input_size,
 					 std::size_t output_size,
-					 math::random<double>& rng)
+					 math::random<float>& rng)
 			:
 				  input_size(input_size),
 				  output_size(output_size),
 				w(input_size, output_size),
-				  b(1, output_size) { math::fill_random(w, rng, -1.0, 1.0); }
+				  b(1, output_size, 0.0) { math::fill_random(w, rng, -1.0f, 1.0f); }
 
-		math::matrix<double> forward(const math::matrix<double>& x)
+		math::matrix<float> forward(const math::matrix<float>& x)
 		{
 			this->x = x;
 			z = x * w + b;
 			return z;
 		}
 
-		math::matrix<double> backward(const math::matrix<double>& delta)
+		math::matrix<float> backward(const math::matrix<float>& delta)
 		{
 			dw = x.transpose() * delta;
 			db = math::sum(delta);
@@ -45,10 +45,10 @@ namespace nn
 			return dx;
 		}
 
-		void update(double lr)
+		void update(float lr)
 		{
-			w = w - (lr * dw);
-			b = b - (lr * db);
+			math::subtract_scaled_inplace(w, lr, dw);
+			math::subtract_scaled_inplace(b, lr, db);
 		}
 	};
 };

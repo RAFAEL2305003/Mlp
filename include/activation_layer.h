@@ -8,14 +8,14 @@ namespace nn
 	{
 		private:
 		activation::type act_type;
-		math::matrix<double> a;
+		math::matrix<float> a;
 		
 		public:
 		activation_layer() {}
 
 		activation_layer(activation::type act_type) : act_type(act_type) {}
 
-		math::matrix<double> forward(const math::matrix<double>& z)
+		math::matrix<float> forward(const math::matrix<float>& z)
 		{
 			switch(act_type)
 			{
@@ -42,7 +42,7 @@ namespace nn
 		}
 
 		// returns the delta of the current layer
-		math::matrix<double> backward(const math::matrix<double>& delta_last)
+		math::matrix<float> backward(const math::matrix<float>& delta_last)
 		{
 			switch(act_type)
 			{

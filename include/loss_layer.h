@@ -14,7 +14,7 @@ namespace nn
 
 		loss_layer(loss::type loss_type) : loss_type(loss_type) {}	
 
-		double forward(const math::matrix<double>& y, const math::matrix<double>& Y)
+		float forward(const math::matrix<float>& y, const math::matrix<float>& Y)
 		{
 			switch(loss_type)
 			{
@@ -37,7 +37,7 @@ namespace nn
 			}
 		}
 
-		math::matrix<double> backward(const math::matrix<double>& y,const math::matrix<double>& Y)
+		math::matrix<float> backward(const math::matrix<float>& y,const math::matrix<float>& Y)
 		{
 			switch(loss_type)
 			{

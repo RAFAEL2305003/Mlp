@@ -10,9 +10,9 @@ namespace nn
 	{
 	private:
 		pooling::type pool_type;
-		math::matrix<double> x;
-		math::matrix<double> y;
-		math::matrix<double> dx;
+		math::matrix<float> x;
+		math::matrix<float> y;
+		math::matrix<float> dx;
 
 	public:
 		std::size_t input_size;
@@ -48,7 +48,7 @@ namespace nn
 			output_size = pooling::output_size(input_size, pool_size, stride);
 		}
 
-		math::matrix<double> forward(const math::matrix<double>& x)
+		math::matrix<float> forward(const math::matrix<float>& x)
 		{
 			assert(x.shape().second == channels * input_size);
 
@@ -69,7 +69,7 @@ namespace nn
 			}
 		}
 
-		math::matrix<double> backward(const math::matrix<double>& delta)
+		math::matrix<float> backward(const math::matrix<float>& delta)
 		{
 			assert(delta.shape().second == channels * output_size);
 

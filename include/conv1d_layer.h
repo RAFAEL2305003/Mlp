@@ -11,14 +11,14 @@ namespace nn
 	{
 		private:
 		conv1d::type conv_type;
-		math::matrix<double> x;
-		math::matrix<double> w;
-		math::matrix<double> b;
-		math::matrix<double> z;
+		math::matrix<float> x;
+		math::matrix<float> w;
+		math::matrix<float> b;
+		math::matrix<float> z;
 
-		math::matrix<double> dw;
-		math::matrix<double> dx;
-		math::matrix<double> db;
+		math::matrix<float> dw;
+		math::matrix<float> dx;
+		math::matrix<float> db;
 
 		std::size_t current_padding()
 		{
@@ -45,7 +45,7 @@ namespace nn
 		conv1d_layer(std::size_t input_size,
 					 std::size_t filters,
 					 std::size_t kernel_size,
-					 math::random<double>& rng,
+					 math::random<float>& rng,
 					 conv1d::type conv_type = conv1d::type::valid,
 					 std::size_t stride = 1)
 			: conv_type(conv_type),
@@ -64,10 +64,10 @@ namespace nn
 			padding = current_padding();
 			output_size = conv1d::output_size(input_size, kernel_size, stride, padding);
 
-			math::fill_random(w, rng, -1.0, 1.0);
+			math::fill_random(w, rng, -1.0f, 1.0f);
 		}
 
-		math::matrix<double> forward(const math::matrix<double>& x)
+		math::matrix<float> forward(const math::matrix<float>& x)
 		{
 			assert(x.shape().second == input_size);
 
@@ -89,7 +89,7 @@ namespace nn
 			}
 		}
 
-		math::matrix<double> backward(const math::matrix<double>& delta)
+		math::matrix<float> backward(const math::matrix<float>& delta)
 		{
 			assert(delta.shape().second == filters * output_size);
 
@@ -111,10 +111,10 @@ namespace nn
 			}
 		}
 
-		void update(double lr)
+		void update(float lr)
 		{
-			w = w - (lr * dw);
-			b = b - (lr * db);
+			math::subtract_scaled_inplace(w, lr, dw);
+			math::subtract_scaled_inplace(b, lr, db);
 		}
 	};
 };

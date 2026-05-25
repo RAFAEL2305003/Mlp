@@ -45,12 +45,14 @@ namespace math
 	void fill_random(matrix<T>& m, random<T> &rng, T min, T max)
 	{
 		auto [rows, cols] = m.shape();
-		for(std::size_t i = 0; i < rows; i++)
+		std::size_t n = rows * cols;
+		if(n == 0) return;
+		std::vector<T> host(n);
+		for(std::size_t i = 0; i < n; i++)
 		{
-			for(std::size_t j = 0; j < cols; j++)
-			{
-				m(i, j) = rng.gen_number(min, max);
-			}
+			host[i] = rng.gen_number(min, max);
 		}
+		// Upload to device. Synchronous because `host` is local.
+		q.memcpy(m.elements, host.data(), n * sizeof(T)).wait();
 	}
 };

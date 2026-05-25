@@ -55,9 +55,9 @@ namespace conv1d
 		return ((input_size + (2 * padding) - kernel_size) / stride) + 1;
 	}
 
-	math::matrix<double> forward(const math::matrix<double>& x,
-								 const math::matrix<double>& w,
-								 const math::matrix<double>& b,
+	math::matrix<float> forward(const math::matrix<float>& x,
+								 const math::matrix<float>& w,
+								 const math::matrix<float>& b,
 								 std::size_t stride,
 								 std::size_t padding)
 	{
@@ -71,49 +71,45 @@ namespace conv1d
 		assert(b_rows == 1 && b_cols == filters);
 
 		std::size_t out_size = output_size(input_size, kernel_size, stride, padding);
-		math::matrix<double> z(batch_size, filters * out_size);
+		math::matrix<float> z(batch_size, filters * out_size);
 
-		{
-			sycl::buffer<const double, 2> x_buf(x.elements.data(), sycl::range<2>(batch_size, input_size));
-			sycl::buffer<const double, 2> w_buf(w.elements.data(), sycl::range<2>(filters, kernel_size));
-			sycl::buffer<const double, 2> b_buf(b.elements.data(), sycl::range<2>(b_rows, b_cols));
-			sycl::buffer<double, 2> z_buf(z.elements.data(), sycl::range<2>(batch_size, filters * out_size));
+		const float* x_p = x.elements;
+		const float* w_p = w.elements;
+		const float* b_p = b.elements;
+		float* z_p = z.elements;
+		std::size_t is = input_size;
+		std::size_t ks = kernel_size;
+		std::size_t os = out_size;
+		std::size_t st = stride;
+		std::size_t pd = padding;
 
-			math::q.submit([&](sycl::handler& h) {
-				auto x_acc = x_buf.template get_access<sycl::access::mode::read>(h);
-				auto w_acc = w_buf.template get_access<sycl::access::mode::read>(h);
-				auto b_acc = b_buf.template get_access<sycl::access::mode::read>(h);
-				auto z_acc = z_buf.template get_access<sycl::access::mode::write>(h);
+		math::q.parallel_for(sycl::range<3>(batch_size, filters, out_size), [=](sycl::id<3> idx) {
+			std::size_t i = idx[0];
+			std::size_t f = idx[1];
+			std::size_t out_pos = idx[2];
+			float sum = b_p[f];
 
-				h.parallel_for(sycl::range<3>(batch_size, filters, out_size), [=](sycl::id<3> idx) {
-					std::size_t i = idx[0];
-					std::size_t f = idx[1];
-					std::size_t out_pos = idx[2];
-					double sum = b_acc[sycl::id<2>(0, f)];
-
-					for(std::size_t k = 0; k < kernel_size; k++)
+			for(std::size_t k = 0; k < ks; k++)
+			{
+				std::size_t padded_idx = (out_pos * st) + k;
+				if(padded_idx >= pd)
+				{
+					std::size_t input_idx = padded_idx - pd;
+					if(input_idx < is)
 					{
-						std::size_t padded_idx = (out_pos * stride) + k;
-						if(padded_idx >= padding)
-						{
-							std::size_t input_idx = padded_idx - padding;
-							if(input_idx < input_size)
-							{
-								sum += x_acc[sycl::id<2>(i, input_idx)] * w_acc[sycl::id<2>(f, k)];
-							}
-						}
+						sum += x_p[i * is + input_idx] * w_p[f * ks + k];
 					}
+				}
+			}
 
-					z_acc[sycl::id<2>(i, (f * out_size) + out_pos)] = sum;
-				});
-			}).wait();
-		}
+			z_p[i * (filters * os) + (f * os) + out_pos] = sum;
+		});
 
 		return z;
 	}
 
-	math::matrix<double> input_derivative(const math::matrix<double>& delta,
-										  const math::matrix<double>& w,
+	math::matrix<float> input_derivative(const math::matrix<float>& delta,
+										  const math::matrix<float>& w,
 										  std::size_t input_size,
 										  std::size_t stride,
 										  std::size_t padding)
@@ -126,51 +122,49 @@ namespace conv1d
 		assert(delta_cols % filters == 0);
 
 		std::size_t out_size = delta_cols / filters;
-		math::matrix<double> dx(batch_size, input_size);
+		math::matrix<float> dx(batch_size, input_size);
 
-		{
-			sycl::buffer<const double, 2> delta_buf(delta.elements.data(), sycl::range<2>(batch_size, delta_cols));
-			sycl::buffer<const double, 2> w_buf(w.elements.data(), sycl::range<2>(filters, kernel_size));
-			sycl::buffer<double, 2> dx_buf(dx.elements.data(), sycl::range<2>(batch_size, input_size));
+		const float* delta_p = delta.elements;
+		const float* w_p = w.elements;
+		float* dx_p = dx.elements;
+		std::size_t is = input_size;
+		std::size_t ks = kernel_size;
+		std::size_t os = out_size;
+		std::size_t st = stride;
+		std::size_t pd = padding;
+		std::size_t fs = filters;
 
-			math::q.submit([&](sycl::handler& h) {
-				auto delta_acc = delta_buf.template get_access<sycl::access::mode::read>(h);
-				auto w_acc = w_buf.template get_access<sycl::access::mode::read>(h);
-				auto dx_acc = dx_buf.template get_access<sycl::access::mode::write>(h);
+		math::q.parallel_for(sycl::range<2>(batch_size, input_size), [=](sycl::id<2> idx) {
+			std::size_t i = idx[0];
+			std::size_t input_idx = idx[1];
+			std::size_t padded_idx = input_idx + pd;
+			float sum = 0.0;
 
-				h.parallel_for(sycl::range<2>(batch_size, input_size), [=](sycl::id<2> idx) {
-					std::size_t i = idx[0];
-					std::size_t input_idx = idx[1];
-					std::size_t padded_idx = input_idx + padding;
-					double sum = 0.0;
-
-					for(std::size_t f = 0; f < filters; f++)
+			for(std::size_t f = 0; f < fs; f++)
+			{
+				for(std::size_t out_pos = 0; out_pos < os; out_pos++)
+				{
+					std::size_t window_start = out_pos * st;
+					if(padded_idx >= window_start)
 					{
-						for(std::size_t out_pos = 0; out_pos < out_size; out_pos++)
+						std::size_t k = padded_idx - window_start;
+						if(k < ks)
 						{
-							std::size_t window_start = out_pos * stride;
-							if(padded_idx >= window_start)
-							{
-								std::size_t k = padded_idx - window_start;
-								if(k < kernel_size)
-								{
-									sum += delta_acc[sycl::id<2>(i, (f * out_size) + out_pos)] *
-										   w_acc[sycl::id<2>(f, k)];
-								}
-							}
+							sum += delta_p[i * (fs * os) + (f * os) + out_pos] *
+								   w_p[f * ks + k];
 						}
 					}
+				}
+			}
 
-					dx_acc[idx] = sum;
-				});
-			}).wait();
-		}
+			dx_p[i * is + input_idx] = sum;
+		});
 
 		return dx;
 	}
 
-	math::matrix<double> weight_derivative(const math::matrix<double>& x,
-										   const math::matrix<double>& delta,
+	math::matrix<float> weight_derivative(const math::matrix<float>& x,
+										   const math::matrix<float>& delta,
 										   std::size_t filters,
 										   std::size_t kernel_size,
 										   std::size_t stride,
@@ -185,49 +179,48 @@ namespace conv1d
 		assert(delta_cols % filters == 0);
 
 		std::size_t out_size = delta_cols / filters;
-		math::matrix<double> dw(filters, kernel_size);
+		math::matrix<float> dw(filters, kernel_size);
 
-		{
-			sycl::buffer<const double, 2> x_buf(x.elements.data(), sycl::range<2>(batch_size, input_size));
-			sycl::buffer<const double, 2> delta_buf(delta.elements.data(), sycl::range<2>(delta_rows, delta_cols));
-			sycl::buffer<double, 2> dw_buf(dw.elements.data(), sycl::range<2>(filters, kernel_size));
+		const float* x_p = x.elements;
+		const float* delta_p = delta.elements;
+		float* dw_p = dw.elements;
+		std::size_t bs = batch_size;
+		std::size_t is = input_size;
+		std::size_t ks = kernel_size;
+		std::size_t os = out_size;
+		std::size_t st = stride;
+		std::size_t pd = padding;
+		std::size_t fs = filters;
 
-			math::q.submit([&](sycl::handler& h) {
-				auto x_acc = x_buf.template get_access<sycl::access::mode::read>(h);
-				auto delta_acc = delta_buf.template get_access<sycl::access::mode::read>(h);
-				auto dw_acc = dw_buf.template get_access<sycl::access::mode::write>(h);
+		math::q.parallel_for(sycl::range<2>(filters, kernel_size), [=](sycl::id<2> idx) {
+			std::size_t f = idx[0];
+			std::size_t k = idx[1];
+			float sum = 0.0;
 
-				h.parallel_for(sycl::range<2>(filters, kernel_size), [=](sycl::id<2> idx) {
-					std::size_t f = idx[0];
-					std::size_t k = idx[1];
-					double sum = 0.0;
-
-					for(std::size_t i = 0; i < batch_size; i++)
+			for(std::size_t i = 0; i < bs; i++)
+			{
+				for(std::size_t out_pos = 0; out_pos < os; out_pos++)
+				{
+					std::size_t padded_idx = (out_pos * st) + k;
+					if(padded_idx >= pd)
 					{
-						for(std::size_t out_pos = 0; out_pos < out_size; out_pos++)
+						std::size_t input_idx = padded_idx - pd;
+						if(input_idx < is)
 						{
-							std::size_t padded_idx = (out_pos * stride) + k;
-							if(padded_idx >= padding)
-							{
-								std::size_t input_idx = padded_idx - padding;
-								if(input_idx < input_size)
-								{
-									sum += x_acc[sycl::id<2>(i, input_idx)] *
-										   delta_acc[sycl::id<2>(i, (f * out_size) + out_pos)];
-								}
-							}
+							sum += x_p[i * is + input_idx] *
+								   delta_p[i * (fs * os) + (f * os) + out_pos];
 						}
 					}
+				}
+			}
 
-					dw_acc[idx] = sum;
-				});
-			}).wait();
-		}
+			dw_p[f * ks + k] = sum;
+		});
 
 		return dw;
 	}
 
-	math::matrix<double> bias_derivative(const math::matrix<double>& delta,
+	math::matrix<float> bias_derivative(const math::matrix<float>& delta,
 										 std::size_t filters)
 	{
 		size_t batch_size = delta.shape().first;
@@ -236,32 +229,31 @@ namespace conv1d
 		assert(delta_cols % filters == 0);
 
 		std::size_t out_size = delta_cols / filters;
-		math::matrix<double> db(1, filters);
+		math::matrix<float> db(1, filters);
 
-		{
-			sycl::buffer<const double, 2> delta_buf(delta.elements.data(), sycl::range<2>(batch_size, delta_cols));
-			sycl::buffer<double, 2> db_buf(db.elements.data(), sycl::range<2>(1, filters));
+		const float* delta_p = delta.elements;
+		float* db_p = db.elements;
+		std::size_t bs = batch_size;
+		std::size_t os = out_size;
+		std::size_t fs = filters;
 
-			math::q.submit([&](sycl::handler& h) {
-				auto delta_acc = delta_buf.template get_access<sycl::access::mode::read>(h);
-				auto db_acc = db_buf.template get_access<sycl::access::mode::write>(h);
+		math::q.parallel_for(sycl::range<1>(filters), [=](sycl::id<1> idx) {
+			db_p[idx[0]] = 0.0f;
+		});
 
-				h.parallel_for(sycl::range<2>(1, filters), [=](sycl::id<2> idx) {
-					std::size_t f = idx[1];
-					double sum = 0.0;
-
-					for(std::size_t i = 0; i < batch_size; i++)
-					{
-						for(std::size_t out_pos = 0; out_pos < out_size; out_pos++)
-						{
-							sum += delta_acc[sycl::id<2>(i, (f * out_size) + out_pos)];
-						}
-					}
-
-					db_acc[idx] = sum;
-				});
-			}).wait();
-		}
+		// Parallel reduction: every (batch, filter, out_pos) tuple atomically
+		// adds into db[f]. Was previously `filters` threads (often 4) — now
+		// it's batch_size*filters*os, which actually uses the GPU.
+		math::q.parallel_for(sycl::range<3>(bs, fs, os), [=](sycl::id<3> idx) {
+			std::size_t i = idx[0];
+			std::size_t f = idx[1];
+			std::size_t out_pos = idx[2];
+			sycl::atomic_ref<float,
+							 sycl::memory_order::relaxed,
+							 sycl::memory_scope::device,
+							 sycl::access::address_space::global_space> ref(db_p[f]);
+			ref.fetch_add(delta_p[i * (fs * os) + (f * os) + out_pos]);
+		});
 
 		return db;
 	}
