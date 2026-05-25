@@ -14,20 +14,10 @@ namespace math
 		std::mt19937 mt;
 
 		public:
-		/**
-		 * @brief Creates the PRNG
-		 *
-		 * Creates the PRNG and an uniform distribution based on type of the
-		 * desired of random number
-		 */
+
 		random() : ss{rd(), rd(), rd(), rd(), rd(), rd(), rd(), rd()},
 					mt(ss) {}
 
-		/**
-		 * @brief Generates a random number
-		 *
-		 * Generates a random number based on desired type
-		 */
 		T gen_number(T min, T max)
 		{
 			std::uniform_real_distribution<T> bzo(min, max);
@@ -35,12 +25,6 @@ namespace math
 		}
 	};
 
-	/**
-	 * @brief Fills a Matrix with random numbers
-	 *
-	 * Fills a Matrix of type T with random numbers
-     * @param m - The Matrix to fill
-	 */
     template<typename T>
 	void fill_random(matrix<T>& m, random<T> &rng, T min, T max)
 	{
