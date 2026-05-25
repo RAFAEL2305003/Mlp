@@ -5,15 +5,15 @@
 	"input_size": 16,
 	"dataset": "can_ids.csv",
 	"conv": [
-		{"filters": 8, "kernel_size": 3, "type": "same", "stride": 1, "activation": "relu"},
-		{"filters": 16, "kernel_size": 3, "type": "same", "stride": 1, "activation": "relu"},
-		{"filters": 16, "kernel_size": 3, "type": "valid", "stride": 1, "activation": "relu"}
+		{"filters": 4, "kernel_size": 3, "type": "valid", "stride": 1, "activation": "relu"},
+		{"filters": 4, "kernel_size": 3, "type": "valid", "stride": 1, "activation": "relu"},
+		{"filters": 4, "kernel_size": 3, "type": "valid", "stride": 1, "activation": "relu"}
 	],
 	"pool": [
 		{"type": "max", "pool_size": 2, "stride": 2},
 		{"type": "max", "pool_size": 2, "stride": 2},
-		{"type": "avg", "pool_size": 2, "stride": 1}
+		{"type": "max", "pool_size": 2, "stride": 2}
 	],
-	"layers": [16, 32, 16, 8],
+	"layers": [100, 32, 16, 8],
 	"activations": ["relu", "relu", "relu"]
 }
