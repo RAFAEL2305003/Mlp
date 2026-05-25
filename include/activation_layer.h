@@ -41,7 +41,6 @@ namespace nn
 			}
 		}
 
-		// returns the delta of the current layer
 		math::matrix<double> backward(const math::matrix<double>& delta_last)
 		{
 			switch(act_type)
@@ -53,6 +52,10 @@ namespace nn
 				case activation::type::sigmoid:
 				{
 					return math::hadamard(delta_last, activation::sigmoid_derivative(a));
+				}
+				case activation::type::softmax:
+				{
+					return delta_last;
 				}
 				default:
 				{
