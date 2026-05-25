@@ -10,7 +10,7 @@
 namespace math
 {
 	inline sycl::queue q{
-		sycl::gpu_selector_v,
+		sycl::cpu_selector_v,
 		sycl::property::queue::in_order{}
 	};
 
@@ -78,8 +78,6 @@ namespace math
 			if(n > 0)
 			{
 				elements = sycl::malloc_device<T>(n, q);
-				// Synchronous wait: v is a local std::vector that may be
-				// destroyed before an async device memcpy gets to read it.
 				q.memcpy(elements, v.data(), n * sizeof(T)).wait();
 			}
 		}
@@ -160,7 +158,6 @@ namespace math
 		T& operator()(std::size_t i, std::size_t j) { return elements[i * cols + j]; }
 		const T& operator()(std::size_t i, std::size_t j) const { return elements[i * cols + j]; }
 
-		// Resize without copy if shape differs; otherwise reuse. Contents undefined after a resize.
 		void ensure_shape(std::size_t r, std::size_t c)
 		{
 			std::size_t need = r * c;
@@ -326,9 +323,6 @@ namespace math
 			r_ptr[idx[0]] = T(0);
 		});
 
-		// Parallel reduction over rows with per-column atomic accumulation.
-		// Crucial when cols is small (e.g. output_size=4): the previous version
-		// launched only `cols` threads, which left the GPU mostly idle.
 		q.parallel_for(sycl::range<2>(r_count, c_count), [=](sycl::id<2> idx) {
 			std::size_t i = idx[0];
 			std::size_t j = idx[1];
@@ -341,7 +335,6 @@ namespace math
 		return r;
 	}
 
-	// target -= scale * other  (single kernel, no intermediate allocation)
 	template<typename T>
 	void subtract_scaled_inplace(matrix<T>& target, float scale, const matrix<T>& other)
 	{
@@ -357,8 +350,6 @@ namespace math
 		});
 	}
 
-	// Reduce a buffer to a single float on the device, return host value.
-	// Avoids the drain()+CPU-loop pattern that forces host page migration.
 	template<typename T>
 	T reduce_sum(const matrix<T>& a)
 	{
@@ -385,9 +376,6 @@ namespace math
 		assert(rows == b.size());
 		math::matrix<T> result(rows, cols + 1);
 
-		// Append the new column on the device. We stage `b` to a temporary
-		// device buffer so the host vector can be released right after, then
-		// a kernel scatters the source matrix + the new column into result.
 		T* col_buf = sycl::malloc_device<T>(rows, q);
 		q.memcpy(col_buf, b.data(), rows * sizeof(T)).wait();
 

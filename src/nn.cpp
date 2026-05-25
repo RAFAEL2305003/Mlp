@@ -300,6 +300,30 @@ class dense_layer
 		std::cout << "epoch: " << epochs << ", loss: " << total_loss / num_batches << "\n";
 	}
 
+	math::matrix<float> predict(const math::matrix<float>& x, size_t batch_size)
+	{
+		auto [rows, cols] = x.shape();
+		assert(cols == input_size);
+
+		math::matrix<float> result(rows, output_size);
+		math::matrix<float> x_chunk(batch_size, input_size);
+
+		for(size_t offset = 0; offset < rows; offset += batch_size)
+		{
+			size_t cur = std::min(batch_size, rows - offset);
+			x_chunk.ensure_shape(cur, input_size);
+			nn::copy_rows_gpu(x, x_chunk, offset, cur);
+
+			math::matrix<float> y_chunk = feedforward(x_chunk);
+			math::q.memcpy(result.elements + offset * output_size,
+						   y_chunk.elements,
+						   cur * output_size * sizeof(float));
+			math::drain();
+		}
+		math::q.wait();
+		return result;
+	}
+
 	float accuracy(const math::matrix<float>& predicted)
 	{
 		auto [rows, cols] = predicted.shape();
@@ -337,8 +361,6 @@ class dense_layer
 		return static_cast<float> (correct) / rows;
 	}
 
-	// Returns {tp, fp, fn} per class. For binary (cols==1), index 0 is the
-	// positive class (label == 1). For multi-class, index c corresponds to class c.
 	std::tuple<std::vector<size_t>, std::vector<size_t>, std::vector<size_t>>
 	confusion_counts(const math::matrix<float>& predicted)
 	{
@@ -387,8 +409,6 @@ class dense_layer
 		return {tp, fp, fn};
 	}
 
-	// Macro-averaged precision: mean of per-class TP / (TP + FP).
-	// Classes with no positive predictions contribute 0 to the average.
 	float precision(const math::matrix<float>& predicted)
 	{
 		auto [tp, fp, fn] = confusion_counts(predicted);
@@ -405,7 +425,6 @@ class dense_layer
 		return sum / static_cast<float>(num_classes);
 	}
 
-	// Macro-averaged recall: mean of per-class TP / (TP + FN).
 	float recall(const math::matrix<float>& predicted)
 	{
 		auto [tp, fp, fn] = confusion_counts(predicted);
@@ -422,7 +441,6 @@ class dense_layer
 		return sum / static_cast<float>(num_classes);
 	}
 
-	// Macro-averaged F1: mean of per-class 2*P*R / (P+R).
 	float f1_score(const math::matrix<float>& predicted)
 	{
 		auto [tp, fp, fn] = confusion_counts(predicted);
@@ -479,9 +497,6 @@ math::matrix<float> read_csv(std::string filename)
     return dataset;
 }
 
-// Z-score normalization per feature column (leaves label columns untouched).
-// Features with near-zero variance (constant columns) are left as-is.
-// Runs entirely on the device — data is malloc_device USM and not host-readable.
 void normalize_features(math::matrix<float>& data, size_t num_features)
 {
 	auto [rows, cols] = data.shape();
@@ -508,13 +523,11 @@ void normalize_features(math::matrix<float>& data, size_t num_features)
 		ref.fetch_add(data_p[i * mc + j]);
 	});
 
-	// Convert sum -> mean.
 	float inv_rows = 1.0f / static_cast<float>(rows);
 	math::q.parallel_for(sycl::range<1>(nf), [=](sycl::id<1> idx) {
 		mean_d[idx[0]] *= inv_rows;
 	});
 
-	// Sum of squared deviations (atomic into std_d).
 	math::q.parallel_for(sycl::range<2>(rows, nf), [=](sycl::id<2> idx) {
 		std::size_t i = idx[0];
 		std::size_t j = idx[1];
@@ -526,12 +539,10 @@ void normalize_features(math::matrix<float>& data, size_t num_features)
 		ref.fetch_add(d * d);
 	});
 
-	// Convert sum-of-squares -> std_dev.
 	math::q.parallel_for(sycl::range<1>(nf), [=](sycl::id<1> idx) {
 		std_d[idx[0]] = sycl::sqrt(std_d[idx[0]] * inv_rows);
 	});
 
-	// Z-score normalize in place; skip columns with near-zero variance.
 	math::q.parallel_for(sycl::range<2>(rows, nf), [=](sycl::id<2> idx) {
 		std::size_t i = idx[0];
 		std::size_t j = idx[1];
@@ -552,8 +563,8 @@ int main()
 	// todo: add this hyperparams to a json file
 	float lr = 0.01;
 	size_t epochs = 100;
-	size_t batch_size = 102'350;
-	size_t input_size = 33;
+	size_t batch_size = 4096;
+	size_t input_size = 16;
 
 	std::vector<conv1d::config> conv_configs = {
 		{4, 3, conv1d::type::valid, 1},
@@ -568,14 +579,14 @@ int main()
 		{pooling::type::max, 2, 2}
 	};
 
-	std::string filename = "nsl_kdd.csv";
+	std::string filename = "can_ids.csv";
 	math::matrix<float> dataset = read_csv(filename);
 	size_t dataset_cols = dataset.shape().second;
 	assert(dataset_cols > input_size);
 	size_t output_size = dataset_cols - input_size;
 	normalize_features(dataset, input_size);
 
-	std::vector<size_t> layers = {116, 16, 8, 4, output_size};
+	std::vector<size_t> layers = {52, 16, 8, 4, output_size};
 
 	std::vector<activation::type> activations = {
 		activation::type::relu,
@@ -601,7 +612,7 @@ int main()
 						  dataset);
  	dense.train(batch_size, c);
 
-	math::matrix predictions = dense.feedforward(nn::get_cols(dataset, 0, input_size));
+	math::matrix predictions = dense.predict(nn::get_cols(dataset, 0, input_size), batch_size);
 	std::cout << "Accuracy  = " << std::round(dense.accuracy(predictions) * 100) << "%" << "\n";
 	std::cout << "Precision = " << std::round(dense.precision(predictions) * 100) << "%" << "\n";
 	std::cout << "F1-score  = " << std::round(dense.f1_score(predictions) * 100) << "%" << "\n";

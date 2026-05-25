@@ -1,6 +1,4 @@
 nn
 xor
-tags
-.idea/
-.idea/workspace.xml
-.ai
+preprocess.py
+env

@@ -86,7 +86,22 @@ namespace loss
 
 	math::matrix<float> ce_derivative(const math::matrix<float>& y, const math::matrix<float>& Y)
 	{
-		return y - Y;
+		auto [rows, cols] = y.shape();
+		assert(rows == Y.shape().first && cols == Y.shape().second);
+
+		math::matrix<float> grad(rows, cols);
+		const float* y_p = y.elements;
+		const float* Y_p = Y.elements;
+		float* grad_p = grad.elements;
+		float inv_rows = 1.0f / static_cast<float>(rows);
+		std::size_t n = rows * cols;
+
+		math::q.parallel_for(sycl::range<1>(n), [=](sycl::id<1> idx) {
+			std::size_t i = idx[0];
+			grad_p[i] = (y_p[i] - Y_p[i]) * inv_rows;
+		});
+
+		return grad;
 	}
 
 	float bce(const math::matrix<float>& y, const math::matrix<float>& Y)

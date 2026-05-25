@@ -41,7 +41,6 @@ namespace nn
 			}
 		}
 
-		// returns the delta of the current layer
 		math::matrix<float> backward(const math::matrix<float>& delta_last)
 		{
 			switch(act_type)

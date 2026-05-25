@@ -241,9 +241,6 @@ namespace conv1d
 			db_p[idx[0]] = 0.0f;
 		});
 
-		// Parallel reduction: every (batch, filter, out_pos) tuple atomically
-		// adds into db[f]. Was previously `filters` threads (often 4) — now
-		// it's batch_size*filters*os, which actually uses the GPU.
 		math::q.parallel_for(sycl::range<3>(bs, fs, os), [=](sycl::id<3> idx) {
 			std::size_t i = idx[0];
 			std::size_t f = idx[1];
