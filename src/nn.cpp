@@ -309,6 +309,107 @@ class dense_layer
 		return static_cast<double> (correct) / rows;
 	}
 
+	// Returns {tp, fp, fn} per class. For binary (cols==1), index 0 is the
+	// positive class (label == 1). For multi-class, index c corresponds to class c.
+	std::tuple<std::vector<size_t>, std::vector<size_t>, std::vector<size_t>>
+	confusion_counts(const math::matrix<double>& predicted)
+	{
+		auto [rows, cols] = predicted.shape();
+		math::matrix<double> y = get_cols(dataset, input_size, input_size + output_size);
+		size_t num_classes = cols == 1 ? 1 : cols;
+		std::vector<size_t> tp(num_classes, 0);
+		std::vector<size_t> fp(num_classes, 0);
+		std::vector<size_t> fn(num_classes, 0);
+
+		if(cols == 1)
+		{
+			for(size_t i = 0; i < rows; i++)
+			{
+				bool p = predicted(i, 0) >= 0.5;
+				bool a = y(i, 0) >= 0.5;
+				if(p && a) tp[0]++;
+				else if(p && !a) fp[0]++;
+				else if(!p && a) fn[0]++;
+			}
+		}
+		else
+		{
+			std::vector predicted_class = activation::argmax(predicted);
+			std::vector actual_class = activation::argmax(y);
+			for(size_t i = 0; i < rows; i++)
+			{
+				size_t p = predicted_class[i];
+				size_t a = actual_class[i];
+				if(p == a)
+				{
+					tp[p]++;
+				}
+				else
+				{
+					fp[p]++;
+					fn[a]++;
+				}
+			}
+		}
+
+		return {tp, fp, fn};
+	}
+
+	// Macro-averaged precision: mean of per-class TP / (TP + FP).
+	// Classes with no positive predictions contribute 0 to the average.
+	double precision(const math::matrix<double>& predicted)
+	{
+		auto [tp, fp, fn] = confusion_counts(predicted);
+		size_t num_classes = tp.size();
+		double sum = 0.0;
+		for(size_t c = 0; c < num_classes; c++)
+		{
+			size_t denom = tp[c] + fp[c];
+			if(denom > 0)
+			{
+				sum += static_cast<double>(tp[c]) / static_cast<double>(denom);
+			}
+		}
+		return sum / static_cast<double>(num_classes);
+	}
+
+	// Macro-averaged recall: mean of per-class TP / (TP + FN).
+	double recall(const math::matrix<double>& predicted)
+	{
+		auto [tp, fp, fn] = confusion_counts(predicted);
+		size_t num_classes = tp.size();
+		double sum = 0.0;
+		for(size_t c = 0; c < num_classes; c++)
+		{
+			size_t denom = tp[c] + fn[c];
+			if(denom > 0)
+			{
+				sum += static_cast<double>(tp[c]) / static_cast<double>(denom);
+			}
+		}
+		return sum / static_cast<double>(num_classes);
+	}
+
+	// Macro-averaged F1: mean of per-class 2*P*R / (P+R).
+	double f1_score(const math::matrix<double>& predicted)
+	{
+		auto [tp, fp, fn] = confusion_counts(predicted);
+		size_t num_classes = tp.size();
+		double sum = 0.0;
+		for(size_t c = 0; c < num_classes; c++)
+		{
+			double p_denom = static_cast<double>(tp[c] + fp[c]);
+			double r_denom = static_cast<double>(tp[c] + fn[c]);
+			double p = p_denom > 0.0 ? static_cast<double>(tp[c]) / p_denom : 0.0;
+			double r = r_denom > 0.0 ? static_cast<double>(tp[c]) / r_denom : 0.0;
+			if(p + r > 0.0)
+			{
+				sum += 2.0 * p * r / (p + r);
+			}
+		}
+		return sum / static_cast<double>(num_classes);
+	}
+
 };
 
 	math::matrix<double> round(math::matrix<double>& predictions)
@@ -399,7 +500,9 @@ int main()
  	dense.train(batch_size, c);	
 
 	math::matrix predictions = dense.feedforward(nn::get_cols(dataset, 0, 33));
-	std::cout << "Accuracy = " << std::round(dense.accuracy(predictions) * 100) << "%" << "\n";
+	std::cout << "Accuracy  = " << std::round(dense.accuracy(predictions) * 100) << "%" << "\n";
+	std::cout << "Precision = " << std::round(dense.precision(predictions) * 100) << "%" << "\n";
+	std::cout << "F1-score  = " << std::round(dense.f1_score(predictions) * 100) << "%" << "\n";
 
 	return 0;
 }
