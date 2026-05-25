@@ -71,7 +71,18 @@ namespace loss
 
 	math::matrix<double> ce_derivative(const math::matrix<double>& y, const math::matrix<double>& Y)
 	{
-		return y - Y;
+		auto [rows, cols] = y.shape();
+		assert(rows == Y.shape().first && cols == Y.shape().second);
+
+		math::matrix<double> grad(rows, cols);
+		for(size_t i = 0; i < rows; i++)
+		{
+			for(size_t j = 0; j < cols; j++)
+			{
+				grad(i, j) = (y(i, j) - Y(i, j)) / static_cast<double>(rows);
+			}
+		}
+		return grad;
 	}
 
 	double bce(const math::matrix<double>& y, const math::matrix<double>& Y)
