@@ -1,0 +1,11 @@
+{
+	"learning_rate": 0.01,
+	"epochs": 100,
+	"batch_size": 4096,
+	"input_size": 16,
+	"dataset": "can_ids.csv",
+	"conv": [],
+	"pool": [],
+	"layers": [16, 32, 16, 8],
+	"activations": ["relu", "relu", "relu"]
+}
