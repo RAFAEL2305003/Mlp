@@ -5,6 +5,7 @@
 #include "../include/pooling_layer.h"
 #include "../include/loss_layer.h"
 #include "../include/rapidcsv.h"
+#include "../include/json.h"
 
 namespace nn {
 
@@ -16,8 +17,6 @@ namespace nn {
 			counter() : idx(0) {}
 	};
 
-	// Slow path: only used for one-shot full-dataset predictions and accuracy.
-	// Per-batch hot path uses copy_rows_gpu below instead.
 	math::matrix<float> get_cols(const math::matrix<float>& m, size_t low, size_t high)
 	{
 		auto [rows, cols] = m.shape();
@@ -38,10 +37,6 @@ namespace nn {
 		return r;
 	}
 
-	// Copy `batch_size` contiguous rows from `src` (row-major, src_cols wide) starting at
-	// row offset `row_offset` into `dst` (must already have shape (batch_size, src_cols)).
-	// Single async device memcpy — replaces the old CPU nested-loop that thrashed
-	// CUDA managed-memory pages every batch.
 	void copy_rows_gpu(const math::matrix<float>& src,
 					   math::matrix<float>& dst,
 					   std::size_t row_offset,
@@ -257,9 +252,6 @@ class dense_layer
 		size_t rmd = rows % batch_size;
 		(rmd != 0) ? num_batches += 1 : num_batches;
 
-		// Preallocate batch staging buffers on the device. We resize only for
-		// the trailing partial batch — the assignment-operator fast path keeps
-		// the same allocation when shapes match between iterations.
 		x_batch_buf = math::matrix<float>(batch_size, input_size);
 		y_batch_buf = math::matrix<float>(batch_size, output_size);
 
@@ -285,9 +277,6 @@ class dense_layer
 				total_loss += loss.forward(fwd_pass, y_batch_buf);
 				backward(fwd_pass, y_batch_buf);
 				update();
-				// Release transient buffers queued via deferred_frees. Without
-				// this, USM allocations accumulate every batch and exhaust VRAM
-				// (caused a GPU hang / display logout previously).
 				math::drain();
 			}
 			if(e % 5 == 0)
@@ -512,7 +501,6 @@ void normalize_features(math::matrix<float>& data, size_t num_features)
 	std::size_t mc = cols;
 	std::size_t nf = num_features;
 
-	// Sum per feature column (atomic into mean_d).
 	math::q.parallel_for(sycl::range<2>(rows, nf), [=](sycl::id<2> idx) {
 		std::size_t i = idx[0];
 		std::size_t j = idx[1];
@@ -558,64 +546,130 @@ void normalize_features(math::matrix<float>& data, size_t num_features)
 	sycl::free(std_d, math::q);
 }
 
-int main()
+activation::type parse_activation(const std::string& name)
 {
-	// todo: add this hyperparams to a json file
-	float lr = 0.01;
-	size_t epochs = 100;
-	size_t batch_size = 4096;
-	size_t input_size = 16;
+	if(name == "relu") return activation::type::relu;
+	if(name == "sigmoid") return activation::type::sigmoid;
+	if(name == "softmax") return activation::type::softmax;
+	throw std::runtime_error("unknown activation: " + name);
+}
 
-	std::vector<conv1d::config> conv_configs = {
-		{4, 3, conv1d::type::valid, 1},
-		{4, 3, conv1d::type::valid, 1}
-	};
-	std::vector<activation::type> conv_activations = {
-		activation::type::relu,
-		activation::type::relu
-	};
-	std::vector<pooling::config> pool_configs = {
-		{pooling::type::max, 2, 2},
-		{pooling::type::max, 2, 2}
-	};
+conv1d::type parse_conv_type(const std::string& name)
+{
+	if(name == "valid") return conv1d::type::valid;
+	if(name == "same") return conv1d::type::same;
+	if(name == "full") return conv1d::type::full;
+	throw std::runtime_error("unknown conv type: " + name);
+}
 
-	std::string filename = "can_ids.csv";
+pooling::type parse_pool_type(const std::string& name)
+{
+	if(name == "max") return pooling::type::max;
+	if(name == "avg") return pooling::type::avg;
+	throw std::runtime_error("unknown pool type: " + name);
+}
+
+int main(int argc, char** argv)
+{
+	if(argc < 2)
+	{
+		std::cerr << "Usage: " << argv[0] << " <model.json>" << std::endl;
+		return 1;
+	}
+
+	json::value model = json::load(argv[1]);
+
+	float lr = static_cast<float>(model.at("learning_rate").as_number());
+	size_t epochs = static_cast<size_t>(model.at("epochs").as_int());
+	size_t batch_size = static_cast<size_t>(model.at("batch_size").as_int());
+	size_t input_size = static_cast<size_t>(model.at("input_size").as_int());
+
+	std::vector<conv1d::config> conv_configs;
+	std::vector<activation::type> conv_activations;
+	if(model.has("conv"))
+	{
+		for(const json::value& c : model.at("conv").as_array())
+		{
+			conv1d::config cfg{
+				static_cast<size_t>(c.at("filters").as_int()),
+				static_cast<size_t>(c.at("kernel_size").as_int()),
+				parse_conv_type(c.at("type").as_string()),
+				static_cast<size_t>(c.at("stride").as_int())
+			};
+			conv_configs.push_back(cfg);
+			conv_activations.push_back(parse_activation(c.at("activation").as_string()));
+		}
+	}
+
+	std::vector<pooling::config> pool_configs;
+	if(model.has("pool"))
+	{
+		for(const json::value& p : model.at("pool").as_array())
+		{
+			pooling::config cfg{
+				parse_pool_type(p.at("type").as_string()),
+				static_cast<size_t>(p.at("pool_size").as_int()),
+				static_cast<size_t>(p.at("stride").as_int())
+			};
+			pool_configs.push_back(cfg);
+		}
+	}
+
+	std::string filename = model.has("dataset") ? model.at("dataset").as_string() : std::string("can_ids.csv");
 	math::matrix<float> dataset = read_csv(filename);
 	size_t dataset_cols = dataset.shape().second;
 	assert(dataset_cols > input_size);
 	size_t output_size = dataset_cols - input_size;
 	normalize_features(dataset, input_size);
 
-	std::vector<size_t> layers = {52, 16, 8, 4, output_size};
+	std::vector<size_t> layers;
+	for(const json::value& l : model.at("layers").as_array())
+	{
+		layers.push_back(static_cast<size_t>(l.as_int()));
+	}
+	layers.push_back(output_size);
 
-	std::vector<activation::type> activations = {
-		activation::type::relu,
-		activation::type::relu,
-		activation::type::relu,
-		output_size == 1 ? activation::type::sigmoid : activation::type::softmax
-	};
+	std::vector<activation::type> activations;
+	for(const json::value& a : model.at("activations").as_array())
+	{
+		activations.push_back(parse_activation(a.as_string()));
+	}
+	activations.push_back(output_size == 1 ? activation::type::sigmoid : activation::type::softmax);
 
 	loss::type loss = output_size == 1 ? loss::type::bce : loss::type::ce;
 	std::cout << "Running on: "
 			  << math::q.get_device().get_info<sycl::info::device::name>()
 			  << std::endl;
 	nn::counter c;
-	nn::dense_layer dense(epochs,
-						  lr,
-						  input_size,
-						  conv_configs,
-						  conv_activations,
-						  pool_configs,
-						  layers,
-						  activations,
-						  loss,
-						  dataset);
- 	dense.train(batch_size, c);
+	std::unique_ptr<nn::dense_layer> dense;
+	if(conv_configs.empty())
+	{
+		dense = std::make_unique<nn::dense_layer>(epochs,
+												  lr,
+												  layers,
+												  activations,
+												  loss,
+												  dataset);
+	}
+	else
+	{
+		dense = std::make_unique<nn::dense_layer>(epochs,
+												  lr,
+												  input_size,
+												  conv_configs,
+												  conv_activations,
+												  pool_configs,
+												  layers,
+												  activations,
+												  loss,
+												  dataset);
+	}
+ 	dense->train(batch_size, c);
 
-	math::matrix predictions = dense.predict(nn::get_cols(dataset, 0, input_size), batch_size);
-	std::cout << "Accuracy  = " << std::round(dense.accuracy(predictions) * 100) << "%" << "\n";
-	std::cout << "Precision = " << std::round(dense.precision(predictions) * 100) << "%" << "\n";
-	std::cout << "F1-score  = " << std::round(dense.f1_score(predictions) * 100) << "%" << "\n";
+	math::matrix predictions = dense->predict(nn::get_cols(dataset, 0, input_size), batch_size);
+	std::cout << "Accuracy  = " << std::round(dense->accuracy(predictions) * 100) << "%" << "\n";
+	std::cout << "Precision = " << std::round(dense->precision(predictions) * 100) << "%" << "\n";
+	std::cout << "F1-score  = " << std::round(dense->f1_score(predictions) * 100) << "%" << "\n";
 
 	return 0;
 }

@@ -1,0 +1,19 @@
+{
+	"learning_rate": 0.005,
+	"epochs": 150,
+	"batch_size": 2048,
+	"input_size": 16,
+	"dataset": "can_ids.csv",
+	"conv": [
+		{"filters": 8, "kernel_size": 3, "type": "same", "stride": 1, "activation": "relu"},
+		{"filters": 16, "kernel_size": 3, "type": "same", "stride": 1, "activation": "relu"},
+		{"filters": 16, "kernel_size": 3, "type": "valid", "stride": 1, "activation": "relu"}
+	],
+	"pool": [
+		{"type": "max", "pool_size": 2, "stride": 2},
+		{"type": "max", "pool_size": 2, "stride": 2},
+		{"type": "avg", "pool_size": 2, "stride": 1}
+	],
+	"layers": [16, 32, 16, 8],
+	"activations": ["relu", "relu", "relu"]
+}
