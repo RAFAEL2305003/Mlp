@@ -466,6 +466,14 @@ pooling::type parse_pool_type(const std::string& name)
 	throw std::runtime_error("unknown pool type: " + name);
 }
 
+loss::type parse_loss(const std::string& name)
+{
+	if(name == "mse") return loss::type::mse;
+	if(name == "bce") return loss::type::bce;
+	if(name == "ce") return loss::type::ce;
+	throw std::runtime_error("unknown loss: " + name);
+}
+
 int main(int argc, char** argv)
 {
 	if(argc < 2)
@@ -530,9 +538,8 @@ int main(int argc, char** argv)
 	{
 		activations.push_back(parse_activation(a.as_string()));
 	}
-	activations.push_back(output_size == 1 ? activation::type::sigmoid : activation::type::softmax);
 
-	loss::type loss = output_size == 1 ? loss::type::bce : loss::type::ce;
+	loss::type loss = parse_loss(model.at("loss").as_string());
 
 	nn::counter c;
 	std::unique_ptr<nn::dense_layer> dense;
