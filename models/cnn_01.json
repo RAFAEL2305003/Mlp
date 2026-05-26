@@ -10,7 +10,7 @@
 	"pool": [
 		{"type": "avg", "pool_size": 2, "stride": 2}
 	],
-	"layers": [35, 20, 10, 8],
+	"layers": [35, 20, 10, 8, 5],
 	"activations": ["relu", "relu", "relu", "softmax"],
 	"loss": "ce"
 }

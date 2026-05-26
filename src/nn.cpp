@@ -531,7 +531,7 @@ int main(int argc, char** argv)
 	{
 		layers.push_back(static_cast<size_t>(l.as_int()));
 	}
-	layers.push_back(output_size);
+	assert(layers.back() == output_size);
 
 	std::vector<activation::type> activations;
 	for(const json::value& a : model.at("activations").as_array())

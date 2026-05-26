@@ -6,7 +6,7 @@
 	"dataset": "can_ids.csv",
 	"conv": [],
 	"pool": [],
-	"layers": [16, 32, 16, 8],
+	"layers": [16, 32, 16, 8, 5],
 	"activations": ["relu", "relu", "relu", "softmax"],
 	"loss": "ce"
 }

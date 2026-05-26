@@ -14,7 +14,7 @@
 		{"type": "max", "pool_size": 2, "stride": 2},
 		{"type": "max", "pool_size": 2, "stride": 2}
 	],
-	"layers": [100, 32, 16, 8],
+	"layers": [100, 32, 16, 8, 5],
 	"activations": ["relu", "relu", "relu", "softmax"],
 	"loss": "ce"
 }
