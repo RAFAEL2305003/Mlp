@@ -7,5 +7,6 @@
 	"conv": [],
 	"pool": [],
 	"layers": [16, 32, 16, 8],
-	"activations": ["relu", "relu", "relu"]
+	"activations": ["relu", "relu", "relu", "softmax"],
+	"loss": "ce"
 }

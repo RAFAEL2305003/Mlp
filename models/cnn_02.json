@@ -1,6 +1,6 @@
 {
 	"learning_rate": 0.005,
-	"epochs": 150,
+	"epochs": 20,
 	"batch_size": 2048,
 	"input_size": 16,
 	"dataset": "can_ids.csv",
@@ -15,5 +15,6 @@
 		{"type": "max", "pool_size": 2, "stride": 2}
 	],
 	"layers": [100, 32, 16, 8],
-	"activations": ["relu", "relu", "relu"]
+	"activations": ["relu", "relu", "relu", "softmax"],
+	"loss": "ce"
 }
