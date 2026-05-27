@@ -10,7 +10,7 @@
 namespace math
 {
 	inline sycl::queue q{
-		sycl::cpu_selector_v,
+		sycl::gpu_selector_v,
 		sycl::property::queue::in_order{}
 	};
 
